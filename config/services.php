@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    'escort_portal' => [
+        'driver' => env('ESCORT_PORTAL_DRIVER', 'http'),
+        'fixture_directory' => env('ESCORT_PORTAL_FIXTURE_DIRECTORY'),
+        'base_url' => env('ESCORT_PORTAL_BASE_URL'),
+        'ad_path' => env('ESCORT_PORTAL_AD_PATH', '/search'),
+        'phone_query_parameter' => env('ESCORT_PORTAL_PHONE_QUERY_PARAMETER', 'phone'),
+        'proxy' => env('ESCORT_PORTAL_PROXY'),
+        'timeout' => (int) env('ESCORT_PORTAL_TIMEOUT', 10),
+        'user_agent' => env('ESCORT_PORTAL_USER_AGENT', 'BlacklistBackend/1.0'),
+    ],
+
 ];
