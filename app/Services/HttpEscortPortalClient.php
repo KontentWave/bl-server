@@ -3,31 +3,21 @@
 namespace App\Services;
 
 use App\Contracts\EscortPortalClient;
+use App\Exceptions\InvalidAdUrlException;
 use App\Exceptions\EscortPortalTimeoutException;
 use App\Exceptions\EscortPortalUnavailableException;
-use App\Support\PhoneNumberRedactor;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class HttpEscortPortalClient implements EscortPortalClient
 {
-    public function __construct(
-        private readonly EscortPhoneNumberNormalizer $escortPhoneNumberNormalizer,
-    ) {
-    }
-
-    public function fetchAdHtml(string $phoneNumber): ?string
+    public function fetchAdHtml(string $adUrl): ?string
     {
-        $baseUrl = config('services.escort_portal.base_url');
-        $redactedPhoneNumber = PhoneNumberRedactor::redact($phoneNumber);
-
-        if (! is_string($baseUrl) || $baseUrl === '') {
-            throw EscortPortalUnavailableException::forPhoneNumber($phoneNumber);
+        if (! filter_var($adUrl, FILTER_VALIDATE_URL)) {
+            throw InvalidAdUrlException::create();
         }
 
-        $adPath = config('services.escort_portal.ad_path', '/search');
-        $phoneQueryParameter = config('services.escort_portal.phone_query_parameter', 'phone');
         $timeout = (int) config('services.escort_portal.timeout', 10);
         $userAgent = (string) config('services.escort_portal.user_agent', 'BlacklistBackend/1.0');
         $proxy = config('services.escort_portal.proxy');
@@ -40,30 +30,24 @@ class HttpEscortPortalClient implements EscortPortalClient
             $request = $request->withOptions(['proxy' => $proxy]);
         }
 
-        $url = rtrim($baseUrl, '/').'/'.ltrim((string) $adPath, '/');
-        $normalizedPhoneNumber = $this->escortPhoneNumberNormalizer->normalize($phoneNumber);
-
         Log::info('escort_portal.fetch.started', [
-            'phone_number' => $redactedPhoneNumber,
+            'ad_url_hash' => sha1($adUrl),
             'driver' => 'http',
-            'url' => $url,
         ]);
 
         try {
-            $response = $request->get($url, [
-                (string) $phoneQueryParameter => $normalizedPhoneNumber,
-            ]);
+            $response = $request->get($adUrl);
         } catch (ConnectionException) {
-            throw EscortPortalTimeoutException::forPhoneNumber($phoneNumber);
+            throw EscortPortalTimeoutException::forPhoneNumber($adUrl);
         }
 
         if ($response->serverError()) {
-            throw EscortPortalUnavailableException::forPhoneNumber($phoneNumber, $response->status());
+            throw EscortPortalUnavailableException::forPhoneNumber($adUrl, $response->status());
         }
 
         if (! $response->successful()) {
             Log::info('escort_portal.fetch.no_match', [
-                'phone_number' => $redactedPhoneNumber,
+                'ad_url_hash' => sha1($adUrl),
                 'driver' => 'http',
                 'status' => $response->status(),
             ]);
@@ -72,7 +56,7 @@ class HttpEscortPortalClient implements EscortPortalClient
         }
 
         Log::info('escort_portal.fetch.succeeded', [
-            'phone_number' => $redactedPhoneNumber,
+            'ad_url_hash' => sha1($adUrl),
             'driver' => 'http',
             'status' => $response->status(),
         ]);

@@ -4,15 +4,15 @@ namespace App\Services;
 
 class DeviceSignatureService
 {
-    public function payload(string $phoneNumber, string $publicKey): string
+    public function payload(string $challengeId, string $publicKey): string
     {
         return json_encode([
-            'phone_number' => $phoneNumber,
+            'challenge_id' => $challengeId,
             'public_key' => $this->normalizePublicKey($publicKey),
         ], JSON_THROW_ON_ERROR);
     }
 
-    public function verify(string $phoneNumber, string $publicKey, string $signature): bool
+    public function verify(string $challengeId, string $publicKey, string $signature): bool
     {
         $decodedSignature = base64_decode($signature, true);
 
@@ -28,7 +28,7 @@ class DeviceSignatureService
         }
 
         return openssl_verify(
-            $this->payload($phoneNumber, $normalizedPublicKey),
+            $this->payload($challengeId, $normalizedPublicKey),
             $decodedSignature,
             $publicKeyResource,
             OPENSSL_ALGO_SHA256,

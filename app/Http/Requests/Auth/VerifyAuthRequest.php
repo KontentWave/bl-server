@@ -14,8 +14,8 @@ class VerifyAuthRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'phone_number' => ['required', 'string', 'regex:/^\+[1-9]\d{7,14}$/'],
-            'password' => ['required', 'string'],
+            'challenge_id' => ['required', 'string', 'uuid'],
+            'otp' => ['required', 'string', 'regex:/^\d{6}$/'],
             'public_key' => ['required', 'string'],
             'signature' => ['required', 'string'],
         ];

@@ -1,50 +1,40 @@
-Feature: Hardware-Bound Authentication Initiation
-  In order to securely bind a new device to the network
+Feature: SMS-Verified Hardware Binding
+  In order to securely bind a real worker's device to the network
   As an unverified Android client
-  I need to generate a temporary, 1-hour password tied to a phone number
+  I need to provide an active ad URL and prove ownership of the scraped phone number via SMS
 
-  Scenario: Successfully requesting a new installation password
-    Given an unverified client with the phone number "+421900123456"
-    When the client requests an installation password via the "/api/auth/initiate" endpoint
-    Then the system should respond with a 201 Created status
-    And the response should contain a securely generated password
-    And the database should store a hashed version of the password
-    And the password expiration time should be set to exactly 60 minutes from now
+  Scenario: Successfully initiating the SMS verification flow
+    Given an unverified client provides the active ad URL "https://www.eurogirlsescort.com/escort/miriam/..."
+    When the system scrapes the URL
+    Then the system should successfully extract the phone number "+421900123456"
+    And the system should generate a secure 6-digit OTP
+    And the database should store a hashed version of the OTP with a 15-minute expiration
+    And the system should dispatch an SMS containing the OTP to "+421900123456"
+    And the system should return a challenge identifier and masked phone metadata to the Android client
 
-  Scenario: Validating a password strictly within the 1-hour window
-    Given an installation password was generated for "+421900123456" exactly 59 minutes ago
-    When the system checks the validity of the password
-    Then the system should report the password as valid
+  Scenario: Validating the OTP within the time window
+    Given an OTP was sent to "+421900123456" exactly 10 minutes ago
+    And the Android client has generated a hardware-backed public key pair
+    When the Android client submits the challenge identifier, correct OTP, public key, and valid signature
+    Then the system should verify the OTP
+    And the system should authorize the hardware key binding
 
-  Scenario: Rejecting an expired password
-    Given an installation password was generated for "+421900123456" exactly 61 minutes ago
-    When the system checks the validity of the password
-    Then the system should report the password as expired
-    And the system should reject any hardware-binding attempts for this number
+  Scenario: Rejecting an expired OTP during hardware binding
+    Given an OTP was sent to "+421900123456" exactly 16 minutes ago
+    And the Android client has generated a hardware-backed public key pair
+    When the Android client submits the challenge identifier, expired OTP, public key, and valid signature
+    Then the system should reject the verification attempt
+    And the system should report that the OTP is invalid or expired
 
-  Scenario: Handling multiple password requests (Anti-Spam / Override)
-    Given an active installation password already exists for "+421900123456"
-    When the client requests a new installation password
-    Then the system should invalidate the previously generated password
-    And the system should generate a new password with a fresh 60-minute expiration
+  Scenario: Rejecting an invalid device signature after OTP submission
+    Given an OTP was sent to "+421900123456" exactly 10 minutes ago
+    When the Android client submits the challenge identifier, correct OTP, public key, and invalid signature
+    Then the system should reject the verification attempt
+    And the system should report that the device signature is invalid
 
-  Scenario: Successfully binding a device after ad verification
-    Given an installation password exists for "+421900123456"
-    And an active advertisement fixture can be verified for that number
-    When the client submits the phone number, password, public key, and valid signature to "/api/auth/verify"
-    Then the system should bind the public key to the phone number
-    And the installation password should be invalidated
-
-  Scenario: Rejecting hardware binding when no active advertisement is found
-    Given an installation password exists for "+421900123456"
-    And the advertisement fixture is suspended or missing for that number
-    When the client submits the phone number, password, public key, and valid signature to "/api/auth/verify"
-    Then the system should reject the hardware-binding attempt
-    And the system should report that no active advertisement was verified
-
-  Scenario: Rejecting hardware binding when the device signature is invalid
-    Given an installation password exists for "+421900123456"
-    And an active advertisement fixture can be verified for that number
-    When the client submits the phone number, password, public key, and invalid signature to "/api/auth/verify"
-    Then the system should reject the hardware-binding attempt
-    And the system should report that the signature is invalid
+  Scenario: Handling invalid or missing ads
+    Given an unverified client provides a broken or inactive ad URL
+    When the system attempts to scrape the URL
+    Then the system should fail to extract a valid phone number
+    And the system should return a 400 Bad Request error
+    And no SMS should be dispatched

@@ -2,11 +2,9 @@
 
 namespace Tests\Feature\Auth;
 
-use App\Contracts\EscortAdVerifier;
-use App\Exceptions\EscortPortalTimeoutException;
-use App\Exceptions\EscortPortalUnavailableException;
-use App\Services\AuthChallengeService;
+use App\Contracts\SmsSender;
 use App\Services\DeviceSignatureService;
+use App\Services\OtpChallengeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -15,6 +13,28 @@ class VerifyAuthTest extends TestCase
 {
     use RefreshDatabase;
 
+    private object $fakeSmsSender;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->fakeSmsSender = new class implements SmsSender
+        {
+            public array $messages = [];
+
+            public function sendOtp(string $phoneNumber, string $otp): void
+            {
+                $this->messages[] = [
+                    'phone_number' => $phoneNumber,
+                    'otp' => $otp,
+                ];
+            }
+        };
+
+        $this->app->instance(SmsSender::class, $this->fakeSmsSender);
+    }
+
     protected function tearDown(): void
     {
         Carbon::setTestNow();
@@ -22,62 +42,63 @@ class VerifyAuthTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_it_binds_a_device_when_password_signature_and_ad_verification_succeed(): void
+    public function test_it_binds_a_device_when_otp_signature_and_challenge_verification_succeed(): void
     {
         Carbon::setTestNow(Carbon::create(2026, 3, 31, 12, 0, 0, 'UTC'));
         config()->set('services.escort_portal.driver', 'fixture');
         config()->set('services.escort_portal.fixture_directory', 'tests/Fixtures/escort_ads/active');
 
-        [, $password] = app(AuthChallengeService::class)->issue('+421900123456');
+        [$challenge, $otp] = app(OtpChallengeService::class)->issue('https://portal.example.test/escort/miriam');
         [$privateKey, $publicKey] = $this->generateKeyPair();
 
         $response = $this->postJson('/api/auth/verify', [
-            'phone_number' => '+421900123456',
-            'password' => $password,
+            'challenge_id' => $challenge->challenge_id,
+            'otp' => $otp,
             'public_key' => $publicKey,
-            'signature' => $this->signPayload($privateKey, '+421900123456', $publicKey),
+            'signature' => $this->signPayload($privateKey, $challenge->challenge_id, $publicKey),
         ]);
 
         $response
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('code', 'auth.verified')
-            ->assertJsonPath('data.phone_number', '+421900123456');
+            ->assertJsonPath('data.challenge_id', $challenge->challenge_id)
+            ->assertJsonPath('data.masked_phone_number', '+421***456');
 
         $this->assertDatabaseHas('device_bindings', [
             'phone_number' => '+421900123456',
         ]);
-        $this->assertDatabaseMissing('auth_challenges', [
+        $this->assertDatabaseMissing('otp_challenges', [
             'phone_number' => '+421900123456',
         ]);
     }
 
-    public function test_it_rejects_an_expired_password_during_hardware_binding(): void
+    public function test_it_rejects_an_expired_otp_during_hardware_binding(): void
     {
         Carbon::setTestNow(Carbon::create(2026, 3, 31, 12, 0, 0, 'UTC'));
         config()->set('services.escort_portal.driver', 'fixture');
         config()->set('services.escort_portal.fixture_directory', 'tests/Fixtures/escort_ads/active');
 
-        [, $password] = app(AuthChallengeService::class)->issue('+421900123456');
+        [$challenge, $otp] = app(OtpChallengeService::class)->issue('https://portal.example.test/escort/miriam');
         [$privateKey, $publicKey] = $this->generateKeyPair();
 
-        Carbon::setTestNow(now()->addMinutes(61));
+        Carbon::setTestNow(now()->addMinutes(16));
 
         $response = $this->postJson('/api/auth/verify', [
-            'phone_number' => '+421900123456',
-            'password' => $password,
+            'challenge_id' => $challenge->challenge_id,
+            'otp' => $otp,
             'public_key' => $publicKey,
-            'signature' => $this->signPayload($privateKey, '+421900123456', $publicKey),
+            'signature' => $this->signPayload($privateKey, $challenge->challenge_id, $publicKey),
         ]);
 
         $response
             ->assertUnprocessable()
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', 'validation_failed')
-            ->assertJsonValidationErrors('password');
+            ->assertJsonPath('code', 'otp_invalid_or_expired')
+            ->assertJsonValidationErrors('otp');
 
         $this->assertDatabaseCount('device_bindings', 0);
-        $this->assertDatabaseHas('auth_challenges', [
+        $this->assertDatabaseHas('otp_challenges', [
             'phone_number' => '+421900123456',
         ]);
     }
@@ -88,12 +109,12 @@ class VerifyAuthTest extends TestCase
         config()->set('services.escort_portal.driver', 'fixture');
         config()->set('services.escort_portal.fixture_directory', 'tests/Fixtures/escort_ads/active');
 
-        [, $password] = app(AuthChallengeService::class)->issue('+421900123456');
+        [$challenge, $otp] = app(OtpChallengeService::class)->issue('https://portal.example.test/escort/miriam');
         [, $publicKey] = $this->generateKeyPair();
 
         $response = $this->postJson('/api/auth/verify', [
-            'phone_number' => '+421900123456',
-            'password' => $password,
+            'challenge_id' => $challenge->challenge_id,
+            'otp' => $otp,
             'public_key' => $publicKey,
             'signature' => base64_encode('not-a-valid-signature'),
         ]);
@@ -101,100 +122,36 @@ class VerifyAuthTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', 'validation_failed')
+            ->assertJsonPath('code', 'signature_invalid')
             ->assertJsonValidationErrors('signature');
 
         $this->assertDatabaseCount('device_bindings', 0);
-        $this->assertDatabaseHas('auth_challenges', [
+        $this->assertDatabaseHas('otp_challenges', [
             'phone_number' => '+421900123456',
         ]);
     }
 
-    public function test_it_rejects_hardware_binding_when_no_active_ad_can_be_verified(): void
+    public function test_it_rejects_unknown_or_already_used_challenges(): void
     {
         Carbon::setTestNow(Carbon::create(2026, 3, 31, 12, 0, 0, 'UTC'));
-        config()->set('services.escort_portal.driver', 'fixture');
-        config()->set('services.escort_portal.fixture_directory', 'tests/Fixtures/escort_ads/suspended');
 
-        [, $password] = app(AuthChallengeService::class)->issue('+421900123456');
         [$privateKey, $publicKey] = $this->generateKeyPair();
+        $challengeId = (string) \Illuminate\Support\Str::uuid();
 
         $response = $this->postJson('/api/auth/verify', [
-            'phone_number' => '+421900123456',
-            'password' => $password,
+            'challenge_id' => $challengeId,
+            'otp' => '123456',
             'public_key' => $publicKey,
-            'signature' => $this->signPayload($privateKey, '+421900123456', $publicKey),
+            'signature' => $this->signPayload($privateKey, $challengeId, $publicKey),
         ]);
 
         $response
             ->assertUnprocessable()
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', 'escort_ad_not_verified')
-            ->assertJsonValidationErrors('phone_number');
+            ->assertJsonPath('code', 'challenge_not_found')
+            ->assertJsonValidationErrors('challenge_id');
 
         $this->assertDatabaseCount('device_bindings', 0);
-        $this->assertDatabaseHas('auth_challenges', [
-            'phone_number' => '+421900123456',
-        ]);
-    }
-
-    public function test_it_returns_a_retryable_timeout_error_when_portal_verification_times_out(): void
-    {
-        Carbon::setTestNow(Carbon::create(2026, 3, 31, 12, 0, 0, 'UTC'));
-
-        [, $password] = app(AuthChallengeService::class)->issue('+421900123456');
-        [$privateKey, $publicKey] = $this->generateKeyPair();
-
-        $this->app->bind(EscortAdVerifier::class, fn () => new class implements EscortAdVerifier
-        {
-            public function hasActiveAdForPhoneNumber(string $phoneNumber): bool
-            {
-                throw EscortPortalTimeoutException::forPhoneNumber($phoneNumber);
-            }
-        });
-
-        $response = $this->postJson('/api/auth/verify', [
-            'phone_number' => '+421900123456',
-            'password' => $password,
-            'public_key' => $publicKey,
-            'signature' => $this->signPayload($privateKey, '+421900123456', $publicKey),
-        ]);
-
-        $response
-            ->assertStatus(503)
-            ->assertJsonPath('success', false)
-            ->assertJsonPath('code', 'escort_portal_timeout')
-            ->assertJsonPath('meta.retryable', true);
-    }
-
-    public function test_it_returns_a_retryable_unavailable_error_when_portal_verification_fails_upstream(): void
-    {
-        Carbon::setTestNow(Carbon::create(2026, 3, 31, 12, 0, 0, 'UTC'));
-
-        [, $password] = app(AuthChallengeService::class)->issue('+421900123456');
-        [$privateKey, $publicKey] = $this->generateKeyPair();
-
-        $this->app->bind(EscortAdVerifier::class, fn () => new class implements EscortAdVerifier
-        {
-            public function hasActiveAdForPhoneNumber(string $phoneNumber): bool
-            {
-                throw EscortPortalUnavailableException::forPhoneNumber($phoneNumber, 502);
-            }
-        });
-
-        $response = $this->postJson('/api/auth/verify', [
-            'phone_number' => '+421900123456',
-            'password' => $password,
-            'public_key' => $publicKey,
-            'signature' => $this->signPayload($privateKey, '+421900123456', $publicKey),
-        ]);
-
-        $response
-            ->assertStatus(503)
-            ->assertJsonPath('success', false)
-            ->assertJsonPath('code', 'escort_portal_unavailable')
-            ->assertJsonPath('meta.retryable', true)
-            ->assertJsonPath('meta.upstream_status', 502);
     }
 
     private function generateKeyPair(): array
@@ -211,9 +168,9 @@ class VerifyAuthTest extends TestCase
         return [$privateKeyPem, $details['key']];
     }
 
-    private function signPayload(string $privateKey, string $phoneNumber, string $publicKey): string
+    private function signPayload(string $privateKey, string $challengeId, string $publicKey): string
     {
-        $payload = app(DeviceSignatureService::class)->payload($phoneNumber, $publicKey);
+        $payload = app(DeviceSignatureService::class)->payload($challengeId, $publicKey);
 
         openssl_sign($payload, $signature, $privateKey, OPENSSL_ALGO_SHA256);
 

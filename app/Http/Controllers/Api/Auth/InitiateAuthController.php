@@ -4,24 +4,24 @@ namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\InitiateAuthRequest;
-use App\Services\AuthChallengeService;
+use App\Services\OtpChallengeService;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 
 class InitiateAuthController extends Controller
 {
-    public function __invoke(InitiateAuthRequest $request, AuthChallengeService $authChallengeService): JsonResponse
+    public function __invoke(InitiateAuthRequest $request, OtpChallengeService $otpChallengeService): JsonResponse
     {
-        [$authChallenge, $plainTextPassword] = $authChallengeService->issue(
-            $request->string('phone_number')->toString(),
+        [$otpChallenge] = $otpChallengeService->issue(
+            $request->string('ad_url')->toString(),
         );
 
         return ApiResponse::success(
-            code: 'auth.initiated',
+            code: 'auth.sms_initiated',
             data: [
-                'phone_number' => $authChallenge->phone_number,
-                'password' => $plainTextPassword,
-                'expires_at' => $authChallenge->expires_at->toIso8601String(),
+                'challenge_id' => $otpChallenge->challenge_id,
+                'masked_phone_number' => \App\Support\PhoneNumberRedactor::redact($otpChallenge->phone_number),
+                'otp_expires_at' => $otpChallenge->expires_at->toIso8601String(),
             ],
             status: 201,
         );

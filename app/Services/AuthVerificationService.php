@@ -2,70 +2,68 @@
 
 namespace App\Services;
 
-use App\Contracts\EscortAdVerifier;
-use App\Exceptions\EscortAdNotVerifiedException;
-use App\Models\AuthChallenge;
+use App\Exceptions\ChallengeNotFoundException;
+use App\Exceptions\OtpInvalidOrExpiredException;
+use App\Exceptions\SignatureInvalidException;
 use App\Models\DeviceBinding;
+use App\Models\OtpChallenge;
 use App\Support\PhoneNumberRedactor;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\ValidationException;
 
 class AuthVerificationService
 {
     public function __construct(
-        private readonly EscortAdVerifier $escortAdVerifier,
         private readonly DeviceSignatureService $deviceSignatureService,
     ) {
     }
 
-    public function verify(string $phoneNumber, string $password, string $publicKey, string $signature): DeviceBinding
+    public function verify(string $challengeId, string $otp, string $publicKey, string $signature): DeviceBinding
     {
         $normalizedPublicKey = $this->deviceSignatureService->normalizePublicKey($publicKey);
-        $redactedPhoneNumber = PhoneNumberRedactor::redact($phoneNumber);
-
         Log::info('auth.verify.attempted', [
-            'phone_number' => $redactedPhoneNumber,
+            'challenge_id' => $challengeId,
         ]);
 
-        $authChallenge = AuthChallenge::query()
-            ->where('phone_number', $phoneNumber)
+        $otpChallenge = OtpChallenge::query()
+            ->where('challenge_id', $challengeId)
             ->first();
 
-        if (! $authChallenge || ! $authChallenge->hasValidPassword($password)) {
-            Log::warning('auth.verify.rejected.invalid_password', [
+        if (! $otpChallenge) {
+            throw ChallengeNotFoundException::create();
+        }
+
+        $redactedPhoneNumber = PhoneNumberRedactor::redact($otpChallenge->phone_number);
+
+        if (! $otpChallenge->hasValidOtp($otp)) {
+            Log::warning('auth.verify.rejected.invalid_otp', [
+                'challenge_id' => $challengeId,
                 'phone_number' => $redactedPhoneNumber,
             ]);
 
-            throw ValidationException::withMessages([
-                'password' => ['The provided password is invalid or expired.'],
-            ]);
+            throw OtpInvalidOrExpiredException::create();
         }
 
-        if (! $this->deviceSignatureService->verify($phoneNumber, $normalizedPublicKey, $signature)) {
+        if (! $this->deviceSignatureService->verify($challengeId, $normalizedPublicKey, $signature)) {
             Log::warning('auth.verify.rejected.invalid_signature', [
+                'challenge_id' => $challengeId,
                 'phone_number' => $redactedPhoneNumber,
             ]);
 
-            throw ValidationException::withMessages([
-                'signature' => ['The provided device signature is invalid.'],
-            ]);
-        }
-
-        if (! $this->escortAdVerifier->hasActiveAdForPhoneNumber($phoneNumber)) {
-            throw EscortAdNotVerifiedException::forPhoneNumber($phoneNumber);
+            throw SignatureInvalidException::create();
         }
 
         $deviceBinding = DeviceBinding::query()->updateOrCreate(
-            ['phone_number' => $phoneNumber],
+            ['phone_number' => $otpChallenge->phone_number],
             [
                 'public_key' => $normalizedPublicKey,
                 'verified_at' => now(),
             ],
         );
 
-        $authChallenge->delete();
+        $otpChallenge->delete();
 
         Log::info('auth.verify.bound', [
+            'challenge_id' => $challengeId,
             'phone_number' => $redactedPhoneNumber,
             'device_binding_id' => $deviceBinding->id,
         ]);

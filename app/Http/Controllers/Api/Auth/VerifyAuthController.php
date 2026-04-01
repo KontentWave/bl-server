@@ -13,8 +13,8 @@ class VerifyAuthController extends Controller
     public function __invoke(VerifyAuthRequest $request, AuthVerificationService $authVerificationService): JsonResponse
     {
         $deviceBinding = $authVerificationService->verify(
-            phoneNumber: $request->string('phone_number')->toString(),
-            password: $request->string('password')->toString(),
+            challengeId: $request->string('challenge_id')->toString(),
+            otp: $request->string('otp')->toString(),
             publicKey: $request->string('public_key')->toString(),
             signature: $request->string('signature')->toString(),
         );
@@ -22,7 +22,8 @@ class VerifyAuthController extends Controller
         return ApiResponse::success(
             code: 'auth.verified',
             data: [
-                'phone_number' => $deviceBinding->phone_number,
+                'challenge_id' => $request->string('challenge_id')->toString(),
+                'masked_phone_number' => \App\Support\PhoneNumberRedactor::redact($deviceBinding->phone_number),
                 'verified_at' => $deviceBinding->verified_at->toIso8601String(),
             ],
         );

@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('auth_challenges', function (Blueprint $table) {
+        Schema::create('otp_challenges', function (Blueprint $table) {
             $table->id();
             $table->string('phone_number', 16)->unique();
             $table->string('password_hash');
@@ -19,6 +19,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('auth_challenges');
+        Schema::dropIfExists('otp_challenges');
     }
 };

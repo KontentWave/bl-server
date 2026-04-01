@@ -14,7 +14,7 @@ class InitiateAuthRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'phone_number' => ['required', 'string', 'regex:/^\+[1-9]\d{7,14}$/'],
+            'ad_url' => ['required', 'string'],
         ];
     }
 }

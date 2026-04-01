@@ -4,5 +4,5 @@ namespace App\Contracts;
 
 interface EscortPortalClient
 {
-    public function fetchAdHtml(string $phoneNumber): ?string;
+    public function fetchAdHtml(string $adUrl): ?string;
 }

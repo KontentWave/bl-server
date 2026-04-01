@@ -6,23 +6,23 @@ Set up the core development infrastructure, then establish a Zero-Trust, hardwar
 
 ### **Task Breakdown**
 
-1. **Infrastructure & Environment Setup:** Laravel is initialized and running against MariaDB in local development, with PHPUnit active and passing. The backend test environment is configured separately for MariaDB-backed tests. Android project initialization in Android Studio is still pending.
-2. **Laravel - Setup Initial Auth Endpoint:** Implemented. The `/api/auth/initiate` route accepts an E.164 phone number, generates a secure randomized password valid for exactly 1 hour, stores only a hashed password in the database, invalidates any previous challenge for the same phone number, and returns a stable JSON API envelope.
-3. **Laravel - Build the "Stealth Scraper" Job:** Implemented in Laravel as a backend-only verification path. `VerifyEscortAdJob` verifies a phone number against fixture-backed HTML in tests, uses a production-shaped HTTP client boundary for future real portal integration, and currently supports domain error codes for timeout, unavailable upstream, and ad-not-verified outcomes. Real target-portal-specific request building, proxy hardening, and live scraping behavior remain pending.
+1. **Infrastructure & Environment Setup:** Laravel local infrastructure remains MariaDB-backed and testable, but the authentication protocol is being refactored. Android setup should start from the new assumption that the UI exposes only an escort ad URL field. No free phone-number entry field should exist in the client.
+2. **Laravel - Setup Initial Auth Endpoint:** Refactor `/api/auth/initiate` so it accepts an escort ad URL instead of a phone number. Laravel must scrape the ad URL, extract the primary phone number server-side, generate a secure 6-digit OTP, store only its hash with a short expiration (target: 15 minutes), dispatch the OTP by SMS to the scraped phone number, and return a stable challenge identifier plus masked phone metadata to the Android client.
+3. **Laravel - Build the "Ad Scraper" Job:** Refactor the scraper job into an ad-URL-first flow, for example `ExtractPhoneFromAdJob`. It must take the submitted ad URL, route requests through a proxy-capable HTTP boundary, parse the HTML, validate that a usable active ad exists, and extract the primary phone number in normalized E.164 form. This extracted number becomes the server-derived identity target for SMS verification.
 4. **Android - Keystore Integration:** Create a `SecurityManager` class in Kotlin that utilizes the Android Keystore system (specifically requesting `StrongBox` hardware backing) to generate an un-exportable RSA or Elliptic Curve key pair.
-5. **Android - Onboarding UI:** Build the initial Compose UI screens (or XML layouts) for the user to input their phone number and the 1-hour generated password.
-6. **Laravel & Android - The Handshake Endpoint:** Laravel side implemented. The `/api/auth/verify` endpoint accepts the phone number, temporary password, public key, and signature; verifies the signed payload; validates the 1-hour password; runs escort-ad verification; and binds the device public key on success. The Android client still needs to implement the request flow against the backend contract documented in `.github/docs/BACKEND_API_CONTRACT.md`.
+5. **Android - Onboarding UI:** Build the initial Compose UI around a single user-entered field for the active escort ad URL, followed by OTP confirmation. The client should not expose a free phone-number field. After Laravel sends the OTP to the scraped number, the Android app can display only masked phone metadata and the OTP entry UI.
+6. **Laravel & Android - The Handshake Endpoint:** Refactor `/api/auth/verify` so the Android app sends the server-issued challenge identifier, OTP, public key, and signature. Laravel must verify the OTP against the stored hash and expiry, verify the signature over the canonical challenge payload, and only then bind the public key to the server-scraped phone identity.
 
 ### **Accessibility (Android `ContentDescriptions`)**
 
-- Ensure the Phone Number and Password input fields have clear `contentDescription` tags for screen readers (TalkBack).
-- Ensure error states (e.g., "Password expired") are announced to the accessibility service immediately upon UI update.
+- Ensure the Escort Ad URL and OTP input fields have clear `contentDescription` tags for screen readers (TalkBack).
+- Ensure error states (e.g., "OTP expired" or "Ad URL invalid") are announced to the accessibility service immediately upon UI update.
 - Maintain a minimum color contrast ratio of 4.5:1 for all text and warning elements in the onboarding flow.
 
 ### **Test Plan (TDD Acceptance Criteria)**
 
-- **Environment Test 0 (NEW):** Laravel side is satisfied: the backend compiles, connects to MariaDB, runs migrations, and executes tests successfully. Android side is still pending.
-- **Laravel Test 1:** Implemented and passing. A generated password remains valid through the 60-minute boundary and becomes unusable strictly after that window.
-- **Laravel Test 2:** Implemented and passing in emulation form. `VerifyEscortAdJob` returns `true` for an active fixture and `false` for a suspended or missing fixture. The parser and HTTP client boundary are also covered by tests.
+- **Environment Test 0 (NEW):** Assert that both the Laravel backend and Android client successfully compile, connect to their respective local environments, and can execute a dummy unit test to prove the testing frameworks are active.
+- **Laravel Test 1:** Assert that a generated OTP expires and is unusable strictly after the configured short window (target: 15 minutes).
+- **Laravel Test 2:** Assert that the ad extraction job correctly returns the normalized phone number for a known active ad URL and fails cleanly for a missing, suspended, or malformed ad.
 - **Android Test 1:** Assert that the `SecurityManager` successfully generates a key pair and throws an exception if `StrongBox` hardware is unavailable (forcing a fallback or exit).
-- **Integration Test 1:** Laravel-side signature verification is implemented and passing in backend tests using generated key pairs. Full Android-to-Laravel device integration is still pending.
+- **Integration Test 1:** Assert that a payload signed by the Android Private Key is successfully verified by the Laravel backend after OTP verification using the stored challenge identifier and Public Key.

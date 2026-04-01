@@ -38,12 +38,15 @@ return [
     'escort_portal' => [
         'driver' => env('ESCORT_PORTAL_DRIVER', 'http'),
         'fixture_directory' => env('ESCORT_PORTAL_FIXTURE_DIRECTORY'),
-        'base_url' => env('ESCORT_PORTAL_BASE_URL'),
-        'ad_path' => env('ESCORT_PORTAL_AD_PATH', '/search'),
-        'phone_query_parameter' => env('ESCORT_PORTAL_PHONE_QUERY_PARAMETER', 'phone'),
+        'development_phone_override' => env('ESCORT_PORTAL_DEVELOPMENT_PHONE_OVERRIDE'),
         'proxy' => env('ESCORT_PORTAL_PROXY'),
         'timeout' => (int) env('ESCORT_PORTAL_TIMEOUT', 10),
         'user_agent' => env('ESCORT_PORTAL_USER_AGENT', 'BlacklistBackend/1.0'),
+    ],
+
+    'sms' => [
+        'driver' => env('SMS_DRIVER', 'log'),
+        'log_otp_in_non_production' => (bool) env('SMS_LOG_OTP_IN_NON_PRODUCTION', true),
     ],
 
 ];
