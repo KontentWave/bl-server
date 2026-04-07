@@ -16,9 +16,11 @@ The MVP will be an Android application (distributed directly via APK) and a Lara
 
 _Goal: Establish the secure communication channel and identity verification between Android and Laravel._
 
+Status: complete for the current MVP Phase 1 scope, including a successful end-to-end Android-to-Laravel verify/bind run on a physical Android device.
+
 - **Laravel:** Set up the base API. Create the ad-URL-first scraper flow that fetches an active escort portal ad, extracts the phone number server-side, generates a short-lived SMS OTP, and validates the OTP plus device signature.
-- **Android:** Implement the Android Keystore (StrongBox) hardware key generation. Build the onboarding UI around the escort ad URL first, then OTP confirmation using only the masked phone metadata returned by Laravel.
-- **Integration:** Complete the handshake where the app signs the canonical challenge payload, Laravel verifies the SMS OTP and hardware signature, and Laravel stores the device's Public Key for all future authentications.
+- **Android:** Implement hardware-backed Android Keystore key generation, accepting TEE/KeyMint-backed or StrongBox-backed devices. Build the onboarding UI around the escort ad URL first, then OTP confirmation using only the masked phone metadata returned by Laravel.
+- **Integration:** Complete the handshake where the app signs the canonical challenge payload, Laravel verifies the SMS OTP and hardware signature, and Laravel stores the device's Public Key for all future authentications. This phase is now confirmed by a successful physical-device verify/bind run.
 
 ### Phase 2: Threshold Logic & Backend Database (The Brain)
 

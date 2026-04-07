@@ -1,0 +1,498 @@
+# Phase 1 Android Progress
+
+- Status: complete
+- Last updated: 2026-04-07
+- Scope: Android client implementation for Phase 1 foundation and security handshake
+
+## Summary
+
+The Android client now implements the Phase 1 onboarding flow defined by `docs/blacklist_project_sheet.md`, `docs/ADRs/1_foundation+security_handshake.md`, and `docs/BACKEND_API_CONTRACT.md`.
+
+The current app supports:
+
+- escort ad URL initiation only
+- OTP challenge initiation against `POST /api/auth/initiate`
+- OTP verification against `POST /api/auth/verify`
+- tolerant parsing for backend success envelopes that return `meta` as either `{}` or `[]`
+- hardware-backed signing payload generation through `SecurityManager`
+- canonical challenge payload signing with normalized PEM public key
+- onboarding UI transition from ad URL entry to OTP entry to verified success
+- accessibility semantics and Android UI/instrumentation test scaffolding
+
+Note: the manual runtime observations recorded on 2026-04-04 and 2026-04-05 below were captured before the 2026-04-06 Android refactor away from a StrongBox-only client requirement. Those results remain useful historical evidence, but they should not be treated as the current client-side hardware policy.
+
+## Implemented Slices
+
+### Slice 1: Android foundation
+
+Implemented:
+
+- Kotlin/Compose Android app foundation
+- `MainActivity` Compose host
+- app theme and onboarding starter UI
+- Gradle wrapper repair and Git repository initialization
+
+Relevant commits:
+
+- `79eeef4` Initialize Android foundation and security handshake scaffold
+
+### Slice 2: Security foundation
+
+Implemented:
+
+- `SecurityManager` Android Keystore integration
+- hardware-backed key enforcement with TEE/KeyMint-or-StrongBox acceptance
+- PEM export and normalization
+- canonical JSON payload creation
+- Base64 signature encoding helpers
+
+Key files:
+
+- `app/src/main/java/com/example/myapplication/security/SecurityManager.kt`
+- `app/src/main/java/com/example/myapplication/security/PublicKeyPemEncoder.kt`
+- `app/src/main/java/com/example/myapplication/security/CanonicalPayloadFactory.kt`
+- `app/src/main/java/com/example/myapplication/security/SignatureEncoder.kt`
+
+### Slice 3: Initiate-auth networking
+
+Implemented:
+
+- `POST /api/auth/initiate` API integration
+- response envelope mapping for initiation success/failure
+- repository layer for challenge initiation
+- onboarding state for ad URL submission and challenge display
+
+Relevant commit:
+
+- `5b0029e` Add initiate-auth networking and onboarding state
+
+### Slice 4: OTP verify plus signed device binding
+
+Implemented:
+
+- `POST /api/auth/verify` API integration
+- verify request models for `challenge_id`, `otp`, `public_key`, `signature`
+- signed payload creation via `SecurityManager`
+- onboarding OTP entry state and verified success state
+- hard-stop handling for non-retryable verification failures
+
+Relevant commit:
+
+- `dd6199d` Add OTP verification and signed device binding flow
+
+### Slice 5: Accessibility and Android test hardening
+
+Implemented:
+
+- live-region accessibility hints for error and status updates
+- stable Compose test tags for onboarding states
+- Compose UI tests for ad URL, OTP, and verified states
+- instrumented `SecurityManager` tests for key generation and deterministic hardware-unavailable behavior
+
+### Slice 6: Hardware-security policy refactor
+
+Implemented:
+
+- removed the Android client dependency on StrongBox-specific key generation
+- retained the same Laravel-facing `public_key` plus `signature` verify contract
+- switched client enforcement to hardware-backed Android Keystore material that may be backed by TEE/KeyMint or StrongBox
+- added post-generation keystore inspection so software-only keys are rejected before verify-signing proceeds
+
+Relevant workspace changes:
+
+- `app/src/main/java/com/example/myapplication/security/SecurityManager.kt`
+- `app/src/androidTest/java/com/example/myapplication/security/SecurityManagerInstrumentedTest.kt`
+- `docs/ADRs/1_foundation+security_handshake.md`
+- `docs/blacklist_project_sheet.md`
+
+Relevant commit:
+
+- `dda5402` Add onboarding accessibility and Android test coverage
+
+## Verification Evidence
+
+### Confirmed build/test runs already executed
+
+The following validations were executed successfully during implementation:
+
+- `:app:assembleDebug`
+- `:app:testDebugUnitTest`
+- `:app:assembleDebugAndroidTest`
+- `:app:connectedDebugAndroidTest`
+
+This confirms:
+
+- the Android app currently compiles
+- unit tests compile and run successfully
+- Android instrumented/UI test sources compile and package successfully
+- connected Android tests execute successfully on a real emulator runtime
+
+Additional validation executed on 2026-04-04:
+
+- `:app:testDebugUnitTest --tests com.example.myapplication.data.AuthRepositoryTest`
+- `:app:assembleDebug`
+
+This additionally confirms:
+
+- the repository layer now tolerates backend success envelopes where `meta` is an empty array
+- the app no longer crashes on the known Laravel local success response shape
+
+Additional validation executed on 2026-04-06 for the hardware-security refactor:
+
+- `:app:assembleDebug`
+- `:app:testDebugUnitTest`
+- `:app:assembleDebugAndroidTest`
+
+Result:
+
+- `PASS` for compile, unit tests, and Android test packaging after replacing the StrongBox-only requirement with hardware-backed Android Keystore validation that accepts TEE/KeyMint-backed devices.
+- `:app:connectedDebugAndroidTest` could not run in the local terminal session because no emulator or physical device was connected at execution time.
+
+Additional validation executed on 2026-04-07 for Laravel signature parity:
+
+- `:app:testDebugUnitTest --tests com.example.myapplication.security.CanonicalPayloadFactoryTest`
+- `:app:testDebugUnitTest`
+- `:app:assembleDebug`
+
+Result:
+
+- `PASS` for a canonical-payload fix that now escapes forward slashes as `\/`, matching Laravel/PHP `json_encode(...)` behavior.
+- The most likely cause of the previously observed `auth.verify.rejected.invalid_signature` runtime failure was Android signing a payload with raw `/` characters while Laravel verified a payload with escaped `\/` characters.
+
+### Connected Android test execution recorded
+
+Execution recorded on 2026-04-03 using:
+
+- runtime: Android Emulator
+- device: `Medium_Phone(AVD)`
+- Android version: `7.0`
+- API level: `24`
+
+Environment note:
+
+- emulator boot recovery succeeded after running `Wipe Data` on the AVD
+
+Observed result summary:
+
+- total connected tests: `6`
+- failures: `0`
+- skipped: `0`
+- overall result: `PASS`
+
+Per-test-class result summary:
+
+- `ExampleInstrumentedTest`: `1/1` passed
+- `SecurityManagerInstrumentedTest`: `2/2` passed
+- `OnboardingScreenTest`: `3/3` passed
+
+### Unit tests currently present
+
+- `app/src/test/java/com/example/myapplication/security/CanonicalPayloadFactoryTest.kt`
+- `app/src/test/java/com/example/myapplication/data/AuthRepositoryTest.kt`
+
+### Android instrumented / UI tests currently present
+
+- `app/src/androidTest/java/com/example/myapplication/ui/onboarding/OnboardingScreenTest.kt`
+- `app/src/androidTest/java/com/example/myapplication/security/SecurityManagerInstrumentedTest.kt`
+
+### Manual Android-to-Laravel run recorded
+
+Execution recorded on 2026-04-04 using:
+
+- runtime: Android Emulator
+- device: `Medium_Phone(AVD)`
+- Android version: `7.0`
+- API level: `24`
+- backend mode: Laravel fixture-backed escort portal client
+- backend base URL from emulator: `http://10.0.2.2:8000/api/`
+- test ad URL: `https://portal.example.test/escort/miriam`
+
+Observed manual flow:
+
+1. Android submitted the escort ad URL successfully.
+2. Laravel completed escort ad extraction and issued an OTP challenge.
+3. Laravel logged `sms.otp_dispatched` for masked phone `+421***456`.
+4. Android transitioned from the ad URL step to the OTP-entry screen successfully.
+5. The previous app crash on successful initiate was fixed by tolerating backend `meta: []` success envelopes.
+6. After OTP entry, Android failed locally before calling `POST /api/auth/verify` because the pre-refactor `SecurityManager` required StrongBox and this emulator was below Android 9.
+
+Observed backend evidence:
+
+- `auth.initiate.sms_challenge_created` logged successfully
+- latest OTP used during manual run: `851001`
+- latest challenge id observed during manual run: `d217474b-b212-4dd1-bcd5-ac9d772e5b5d`
+- no successful verify call was completed from this emulator because key generation/signing was blocked client-side
+
+Observed Android result summary:
+
+- initiate request: `PASS`
+- OTP screen transition: `PASS`
+- OTP retrieval from Laravel logs: `PASS`
+- verify request dispatch from Android: `BLOCKED`
+- reason: `StrongBox is required but unavailable on Android versions below 9.`
+- challenge state after local verify attempt: closed until a new challenge is started
+
+### Additional manual emulator run recorded
+
+Execution recorded on 2026-04-04 using:
+
+- runtime: Android Emulator
+- device: `Pixel 8(AVD)`
+- Android version: `14`
+- API level: `34`
+- backend mode: Laravel fixture-backed escort portal client
+- backend base URL from emulator: `http://10.0.2.2:8000/api/`
+- test ad URL: `https://portal.example.test/escort/miriam`
+
+Observed manual flow:
+
+1. The first API 34 attempt did not reach Laravel because cleartext HTTP to the local backend was blocked on newer Android.
+2. The Android debug build was updated to allow debug-only cleartext traffic to the local backend.
+3. After reinstalling the debug build, Android reached Laravel successfully and created a new OTP challenge.
+4. Laravel logged `sms.otp_dispatched` and Android transitioned to the OTP-entry screen successfully.
+5. After OTP entry, Android again failed locally before calling `POST /api/auth/verify`, but this time with a pre-refactor post-Android-9 failure mode: `StrongBox-backed key generation failed on this device.`
+
+Observed Android result summary:
+
+- initiate request on API 34 emulator: `PASS`
+- OTP screen transition on API 34 emulator: `PASS`
+- verify request dispatch from Android on API 34 emulator: `BLOCKED`
+- reason: `StrongBox-backed key generation failed on this device.`
+- interpretation: newer emulator passed the Android-version gate but still did not satisfy the old StrongBox-only hardware requirement
+
+### Manual physical-device run recorded
+
+Execution recorded on 2026-04-05 using:
+
+- runtime: physical Android device
+- device: `Redmi A5`
+- Android version: `15`
+- backend mode: Laravel fixture-backed escort portal client
+- backend base URL from device during local development: `http://127.0.0.1:8000/api/` via `adb reverse`
+- test ad URL: `https://portal.example.test/escort/miriam`
+
+Observed manual flow:
+
+1. The debug build was installed on the physical phone and reached Laravel successfully through the local USB/reverse-tunnel setup.
+2. Android submitted the escort ad URL successfully and Laravel created a new SMS challenge.
+3. Laravel logged `sms.otp_dispatched` and Android transitioned to the OTP-entry screen successfully.
+4. After OTP entry, Android again failed locally before calling `POST /api/auth/verify` with the pre-refactor message: `StrongBox-backed key generation failed on this device.`
+5. Android closed the current verification attempt and required a new SMS challenge before another try.
+
+Observed backend evidence:
+
+- `auth.initiate.sms_challenge_created` logged successfully for the physical-device run
+- latest OTP used during the recorded physical-device run: `919043`
+- latest challenge id observed during the recorded physical-device run: `77faaf8a-08e5-4636-b0cf-e4234f264ca4`
+- no `POST /api/auth/verify` request reached Laravel from this device because key generation/signing was blocked client-side
+
+Observed Android result summary:
+
+- initiate request on physical device: `PASS`
+- OTP screen transition on physical device: `PASS`
+- OTP retrieval from Laravel logs on physical device: `PASS`
+- verify request dispatch from Android on physical device: `BLOCKED`
+- reason: `StrongBox-backed key generation failed on this device.`
+- interpretation: this Android 15 physical device did not satisfy the old StrongBox-only requirement at the time of that run
+
+## Optional Follow-up Validation
+
+The following work is optional follow-up work and should be recorded separately if executed:
+
+1. Optionally repeat the successful verify/bind run on an emulator for additional non-physical-runtime evidence.
+2. Optionally remove or reduce temporary debug diagnostics after the Phase 1 investigation is fully closed.
+
+Important: connected tests are now recorded as executed successfully on an emulator/device runtime.
+
+## Laravel-side diagnostic checklist for the remaining `invalid_signature` issue
+
+Use this section for the server-side investigation of the latest confirmed failing verify attempt.
+
+### Latest confirmed failing verify attempt
+
+- runtime: physical Android device
+- device: `Redmi A5`
+- Android version: `15`
+- backend base URL from device during local development: `http://127.0.0.1:8000/api/` via `adb reverse`
+- result: Laravel reached `auth.verify.attempted` but rejected with `auth.verify.rejected.invalid_signature`
+
+### Exact Android-side values from the failing attempt
+
+- `challenge_id`: `9683690b-e58a-4c4a-976e-66dd93c7e12b`
+- `public_key_sha256`: `b0873abfc5e5c3f08caab28ab255a4f9b40813f7bc49c121ee10d127f6dde5e8`
+- `canonical_payload_sha256`: `d223905b0b6e9fdc424a61380526d83defe7ef9c2c525153b261a29d951efbf8`
+- `signature_sha256`: `efb63bdcb8f477e5c7800bc8a8a85ae9092339720b57ae19bcd0b807b71a4c21`
+- decoded signature byte length: `70`
+- decoded signature first byte: `30`
+- Android local PEM re-parse self-verification result: `true`
+
+### What Laravel should compare for this exact request
+
+1. Confirm Laravel is verifying the same `challenge_id`:
+    - expected: `9683690b-e58a-4c4a-976e-66dd93c7e12b`
+
+2. Confirm Laravel normalizes the inbound `public_key` to the same final PEM bytes that Android signed:
+    - expected normalized PEM SHA-256: `b0873abfc5e5c3f08caab28ab255a4f9b40813f7bc49c121ee10d127f6dde5e8`
+
+3. Confirm Laravel builds the exact same canonical JSON payload before verification:
+    - expected canonical payload SHA-256: `d223905b0b6e9fdc424a61380526d83defe7ef9c2c525153b261a29d951efbf8`
+    - important: this payload must match the contract in `docs/BACKEND_API_CONTRACT.md`, including compact JSON field order and slash escaping produced by PHP `json_encode(...)`
+
+4. Confirm Laravel decodes the inbound Base64 signature into the same bytes Android generated:
+    - expected decoded signature SHA-256: `efb63bdcb8f477e5c7800bc8a8a85ae9092339720b57ae19bcd0b807b71a4c21`
+    - expected decoded signature length: `70`
+    - expected first byte: `30`
+
+5. Confirm Laravel verifies with the same signature semantics Android used:
+    - Android generated a DER-encoded ECDSA signature with `SHA256withECDSA`
+    - Android can successfully re-parse the exact outbound PEM and verify the same signature locally
+
+### Backend questions that should be answered explicitly
+
+- Does Laravel compute the same normalized `public_key` hash as Android?
+- Does Laravel compute the same canonical payload hash as Android?
+- Does Laravel decode the same signature bytes as Android?
+- If all three hashes match, is Laravel using the correct OpenSSL/verification API and ECDSA DER expectations?
+- If one of the hashes differs, at which transformation step does Laravel diverge:
+    - PEM normalization
+    - canonical payload creation
+    - Base64 signature decoding
+    - key loading / verification call
+
+### Current Android-side conclusion
+
+For the latest failing request, Android has already proven locally that:
+
+- the PEM sent to Laravel can be parsed back into a public key,
+- the canonical payload created on Android verifies against that PEM,
+- the generated signature is internally consistent with the Android-side key and payload.
+
+That earlier conclusion is now outdated for the latest reproduced request.
+
+### Confirmed Laravel-vs-Android mismatch for the latest reproduced request
+
+For challenge id `7babb8ee-e021-4d0c-a2ec-8d4d2cbeeeaa`, Laravel-side diagnostics and the Android debug panel now prove the following:
+
+- Android `public_key_sha256`: `a47352e460417c295672d7d901b8ffab928b6e804636f9abcb05359561d30991`
+- Laravel `normalized_public_key_sha256`: `a47352e460417c295672d7d901b8ffab928b6e804636f9abcb05359561d30991`
+- Android `signature_sha256`: `93e454880b1a3778fd2e7ca7ff0a05cbcdfd699a98fd268640a65191f69b1fa5`
+- Laravel `signature_sha256`: `93e454880b1a3778fd2e7ca7ff0a05cbcdfd699a98fd268640a65191f69b1fa5`
+- Android `signature bytes`: `71`
+- Laravel `signature_length`: `71`
+- Android `signature first byte`: `30`
+- Laravel `signature_first_byte`: `30`
+
+These values match.
+
+The confirmed divergence is the canonical payload hash:
+
+- Android `canonical_payload_sha256`: `7b126e93759c4748f7bf315ab1baecc940768fe3e25a04a1e97aae357b1ccdd0`
+- Laravel `canonical_payload_sha256`: `1295ef3972c5d592053d51d6990781915b902d2f94f1797a4aa29d0b1af49b29`
+
+Laravel also successfully loaded the public key and attempted verification for this request:
+
+- `public_key_loaded = true`
+- `openssl_key_type = 3` (EC)
+- `openssl_verify_result = 0`
+
+This means the remaining bug is not PEM transport, Base64 decoding, or OpenSSL key loading. The remaining bug is that Android is signing a different canonical payload byte sequence than Laravel is verifying.
+
+### Note for Android Copilot
+
+Please inspect the Android canonical payload builder for the verify request path.
+
+The next thing to compare is the exact compact JSON string bytes used for signing on Android versus Laravel's PHP `json_encode(...)` output for the same request.
+
+Focus on:
+
+- field order: `challenge_id` first, `public_key` second
+- exact PEM string used inside the JSON payload after Android normalization
+- whether Android is including any extra whitespace or line changes in `public_key`
+- whether Android is escaping forward slashes, newlines, and other characters exactly like PHP `json_encode(...)`
+- whether the payload shown in Android diagnostics is generated from the exact outbound `challenge_id` and exact outbound PEM, not from a stale in-memory value
+
+At this point, Android should log or display the exact canonical JSON string being signed for challenge id `7babb8ee-e021-4d0c-a2ec-8d4d2cbeeeaa`, then compare it byte-for-byte with Laravel's canonical payload construction in `App\Services\DeviceSignatureService::payload(...)`.
+
+### Likely Android root cause identified on 2026-04-07
+
+The latest Android debug payload plus Laravel diagnostics strongly suggest an Android-side PEM construction bug in `PublicKeyPemEncoder.toPem(...)`.
+
+The previous implementation used a triple-quoted string with a multi-line interpolated Base64 body plus `trimIndent()`. That pattern can preserve hidden indentation on internal PEM lines even though the PEM still looks visually correct in the UI.
+
+Impact:
+
+- Android could still re-parse and self-verify the PEM/signature locally,
+- but Laravel would receive a different normalized `public_key` string and therefore build a different canonical payload byte sequence.
+
+Fix implemented in Android workspace:
+
+- replaced the triple-quoted PEM template with explicit string concatenation in `app/src/main/java/com/example/myapplication/security/PublicKeyPemEncoder.kt`
+- added regression coverage in `app/src/test/java/com/example/myapplication/security/PublicKeyPemEncoderTest.kt`
+- re-ran `:app:testDebugUnitTest` and `:app:assembleDebug` successfully after the fix
+
+Status:
+
+- code fix implemented
+- local tests passing
+- confirmed on a fresh physical-device retest: Laravel now accepts the Android verify request and binds the device successfully
+
+### Successful physical-device verify/bind run recorded on 2026-04-07
+
+Execution recorded on 2026-04-07 using:
+
+- runtime: physical Android device
+- device: `Redmi A5`
+- Android version: `15`
+- backend mode: Laravel fixture-backed escort portal client
+- backend base URL from device during local development: `http://127.0.0.1:8000/api/` via `adb reverse`
+- test ad URL: `https://portal.example.test/escort/miriam`
+
+Observed manual flow:
+
+1. Android submitted the escort ad URL successfully.
+2. Laravel completed escort ad extraction and issued a new OTP challenge.
+3. Android displayed the debug diagnostics card showing the corrected PEM/canonical-payload path.
+4. The user entered the latest OTP and submitted verification.
+5. Android transitioned to the success state and displayed `Device verified`.
+6. Laravel logged `auth.verify.bound`, confirming that OTP verification and device binding both succeeded.
+
+Observed backend evidence:
+
+- latest OTP used during the successful run: `323139`
+- successful challenge id: `fff1d20f-1289-4e70-a40d-336991f65bad`
+- Laravel success log: `auth.verify.bound`
+- bound device id observed in Laravel log: `1`
+
+Observed Android result summary:
+
+- initiate request on physical device: `PASS`
+- OTP screen transition on physical device: `PASS`
+- OTP retrieval from Laravel logs on physical device: `PASS`
+- verify request dispatch from Android on physical device: `PASS`
+- device binding result on physical device: `PASS`
+- final user-visible state: `Device verified`
+
+Conclusion:
+
+- the end-to-end Phase 1 Android-to-Laravel handshake is now working on a physical Android device
+- the PEM-generation fix in `PublicKeyPemEncoder.toPem(...)` resolved the canonical-payload mismatch that had caused the previous `invalid_signature` failures
+
+## Scope Alignment Notes
+
+### `docs/blacklist_project_sheet.md`
+
+Still valid as the Phase 1 implementation checklist and acceptance criteria source.
+
+### `docs/ADRs/1_foundation+security_handshake.md`
+
+Still valid as the accepted backend/handshake decision record. No handshake decision drift has been identified in the Android client implementation.
+
+### `docs/BACKEND_API_CONTRACT.md`
+
+Still valid as the Android request/response source of truth. No contract field changes are currently required from the Android side.
+
+## Next Recommended Steps
+
+1. Optionally repeat the final success flow on an emulator for additional evidence beyond the physical-device run.
+2. Remove or tone down temporary debug diagnostics once both Android and Laravel teams are satisfied the issue is closed.
+3. Align the Laravel success envelope back to `meta: {}` when convenient, even though the Android client now tolerates `meta: []`.

@@ -228,6 +228,7 @@ These rules are part of the contract. Android should not infer them.
 - `public_key` must be sent as a PEM-encoded public key string.
 - The backend normalizes PEM line endings from `\r\n` to `\n`.
 - The backend trims leading and trailing whitespace around the PEM string before verification.
+- The backend also trims whitespace on each PEM line and removes blank PEM lines before payload creation and verification.
 - Android should apply the same normalization before generating the signature payload to avoid signing a different byte sequence than Laravel verifies.
 
 ### Canonical Payload To Sign
@@ -252,6 +253,11 @@ json_encode([
 
 Android should sign the UTF-8 bytes of that exact compact JSON string.
 
+Important interoperability note:
+
+- Because Laravel/PHP `json_encode(...)` is used without `JSON_UNESCAPED_SLASHES`, forward slashes inside the PEM/base64 content are escaped as `\/` in the canonical JSON string.
+- Android must mirror that behavior when constructing the signed payload or the backend will reject the signature as invalid even if the same key pair is used.
+
 ### Signature Encoding
 
 - The private key signs the canonical JSON payload.
@@ -262,8 +268,10 @@ Android should sign the UTF-8 bytes of that exact compact JSON string.
 ### Local Development Base URL
 
 - Android emulator to local Laravel in WSL/host usually uses `http://10.0.2.2:8000/api`.
-- A real Android device should use the host machine LAN IP and reachable port, for example `http://192.168.x.x:8000/api`.
+- A real Android device can use `http://127.0.0.1:8000/api` when it is connected over USB and `adb reverse tcp:8000 tcp:8000` is active.
+- A real Android device without `adb reverse` should use the host machine LAN IP and reachable port, for example `http://192.168.x.x:8000/api`.
 - `http://127.0.0.1` from Android points to the Android device or emulator itself, not the Laravel host.
+- The `127.0.0.1` exception above applies only when traffic is intentionally tunneled through `adb reverse` from a USB-connected physical device.
 
 ### Android Error Handling Notes
 

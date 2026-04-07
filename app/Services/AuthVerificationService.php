@@ -20,6 +20,12 @@ class AuthVerificationService
     public function verify(string $challengeId, string $otp, string $publicKey, string $signature): DeviceBinding
     {
         $normalizedPublicKey = $this->deviceSignatureService->normalizePublicKey($publicKey);
+        $signatureDiagnostics = $this->deviceSignatureService->verificationDiagnostics(
+            $challengeId,
+            $normalizedPublicKey,
+            $signature,
+        );
+
         Log::info('auth.verify.attempted', [
             'challenge_id' => $challengeId,
         ]);
@@ -43,11 +49,17 @@ class AuthVerificationService
             throw OtpInvalidOrExpiredException::create();
         }
 
-        if (! $this->deviceSignatureService->verify($challengeId, $normalizedPublicKey, $signature)) {
-            Log::warning('auth.verify.rejected.invalid_signature', [
+        if (! $signatureDiagnostics['verified']) {
+            $logContext = [
                 'challenge_id' => $challengeId,
                 'phone_number' => $redactedPhoneNumber,
-            ]);
+            ];
+
+            if (! app()->environment('production')) {
+                $logContext = array_merge($logContext, $signatureDiagnostics);
+            }
+
+            Log::warning('auth.verify.rejected.invalid_signature', $logContext);
 
             throw SignatureInvalidException::create();
         }
