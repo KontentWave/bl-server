@@ -31,22 +31,32 @@ Set up the core development infrastructure, then establish a Zero-Trust, hardwar
 
 ## **Current Phase:** Phase 2 - Threshold Logic & Backend Database
 
+Status: complete for the current Phase 2 MVP scope. The implemented reporting flow and verification evidence are now tracked in the backend code, tests, and ADRs.
+
 ### **Action**
 
 Implement the core reporting logic securely on the Laravel backend. This includes creating a Zero-Knowledge database schema that stores only cryptographic hashes, enforcing the "3 unique reporters" threshold, and promoting clients from Level 1 (Buffer/Hidden) to Level 2 (Active/Syncable).
 
 ### **Task Breakdown**
 
-1. **Laravel - Database Schema (Migrations):** Create the necessary tables.
+1. ✅ **Laravel - Database Schema (Migrations):** The reporting schema is now implemented.
     - `clients`: Stores `client_hash` (SHA-256 of the client's phone number).
-    - `reports`: Stores `client_hash`, `reporter_hash` (SHA-256 of the worker's verified hardware-bound ID or phone number), and `feature_id`.
+    - `reports`: Stores the client relation, `reporter_hash` (SHA-256 of the verified reporter identity), and the immutable feature key.
+    - `client_feature_levels`: Stores per-client, per-feature unique reporter counts and Level 2 promotion state.
     - _Security Note:_ Ensure database columns for hashes are appropriately sized (e.g., `VARCHAR(64)` for SHA-256 hex strings) and absolutely no raw phone numbers are stored.
-2. **Laravel - Define Features:** Create an Enum or configuration file defining the strict, immutable list of reportable features (e.g., Aggressive, No-Show).
-3. **Laravel - Reporting Endpoint (`POST /api/reports`):** Create the secure endpoint where the Android app submits a new report. This endpoint must require the Phase 1 hardware-backed signature to authorize the request.
-4. **Laravel - Threshold Logic & Promotion:** Implement the core business logic inside the controller or a dedicated service class:
+2. ✅ **Laravel - Define Features:** The strict, immutable reportable feature list is now defined in backend configuration.
+3. ✅ **Laravel - Reporting Endpoint (`POST /api/reports`):** The secure reporting endpoint is now implemented. The Android app submits a signed report request and Laravel authorizes it using the Phase 1 hardware-bound public key.
+4. ✅ **Laravel - Threshold Logic & Promotion:** The core business logic is now implemented in a dedicated reporting service:
     - Check if the specific `reporter_hash` has already reported this `client_hash` for this specific `feature_id`. If so, ignore or return a "duplicate" response.
     - Count the unique `reporter_hash` entries for the client + feature combination.
     - If the count reaches 3, flag that specific feature on the client as "Level 2" (eligible for syncing to devices).
+
+### **Implementation Notes**
+
+- The current Phase 2 backend accepts a raw client phone number from the client request, normalizes it server-side to E.164 when possible, and stores only the SHA-256 `client_hash`.
+- The reporter identity is derived from the Phase 1 verified device binding and persisted only as a SHA-256 `reporter_hash`.
+- The reporting flow is intentionally independent from scraper realism. Phase 2 focuses on privacy, duplicate prevention, and threshold correctness, not on expanding the scraper beyond the existing Phase 1 verification boundary.
+- Level 2 promotion is currently tracked per client and per feature once 3 distinct verified reporters submit the same feature.
 
 ### **Accessibility & API Contract**
 
@@ -58,3 +68,11 @@ Implement the core reporting logic securely on the Laravel backend. This include
 - **Laravel Test 2 (Level 1 Buffer):** Assert that a client with 1 or 2 unique reports remains classified as Level 1 and does not appear in "Level 2" queries.
 - **Laravel Test 3 (Anti-Spam):** Assert that if the same `reporter_hash` submits the same `feature_id` for the same `client_hash` multiple times, the report count remains strictly at 1.
 - **Laravel Test 4 (Level 2 Promotion):** Assert that when a 3rd distinct `reporter_hash` submits the same `feature_id` for a client, the system accurately promotes that client's feature status to Level 2.
+
+### **Current Verification Status**
+
+- ✅ **Laravel Test 1 (Data Privacy):** Passing.
+- ✅ **Laravel Test 2 (Level 1 Buffer):** Passing.
+- ✅ **Laravel Test 3 (Anti-Spam):** Passing.
+- ✅ **Laravel Test 4 (Level 2 Promotion):** Passing.
+- ✅ **Additional coverage:** Independent feature counting is also covered so one feature can remain Level 1 while another feature on the same client starts its own promotion path.
