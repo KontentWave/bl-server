@@ -28,3 +28,33 @@ Set up the core development infrastructure, then establish a Zero-Trust, hardwar
 - **Laravel Test 2:** Assert that the ad extraction job correctly returns the normalized phone number for a known active ad URL and fails cleanly for a missing, suspended, or malformed ad.
 - ✅ **Android Test 1:** `SecurityManager` generation and hardware-backing behavior are covered by Android tests and runtime validation, with TEE/KeyMint-backed devices accepted without requiring `StrongBox` specifically.
 - ✅ **Integration Test 1:** A payload signed by the Android private key is now successfully verified by the Laravel backend after OTP verification using the stored challenge identifier and public key, confirmed by the successful physical-device Phase 1 run on 2026-04-07.
+
+## **Current Phase:** Phase 2 - Threshold Logic & Backend Database
+
+### **Action**
+
+Implement the core reporting logic securely on the Laravel backend. This includes creating a Zero-Knowledge database schema that stores only cryptographic hashes, enforcing the "3 unique reporters" threshold, and promoting clients from Level 1 (Buffer/Hidden) to Level 2 (Active/Syncable).
+
+### **Task Breakdown**
+
+1. **Laravel - Database Schema (Migrations):** Create the necessary tables.
+    - `clients`: Stores `client_hash` (SHA-256 of the client's phone number).
+    - `reports`: Stores `client_hash`, `reporter_hash` (SHA-256 of the worker's verified hardware-bound ID or phone number), and `feature_id`.
+    - _Security Note:_ Ensure database columns for hashes are appropriately sized (e.g., `VARCHAR(64)` for SHA-256 hex strings) and absolutely no raw phone numbers are stored.
+2. **Laravel - Define Features:** Create an Enum or configuration file defining the strict, immutable list of reportable features (e.g., Aggressive, No-Show).
+3. **Laravel - Reporting Endpoint (`POST /api/reports`):** Create the secure endpoint where the Android app submits a new report. This endpoint must require the Phase 1 hardware-backed signature to authorize the request.
+4. **Laravel - Threshold Logic & Promotion:** Implement the core business logic inside the controller or a dedicated service class:
+    - Check if the specific `reporter_hash` has already reported this `client_hash` for this specific `feature_id`. If so, ignore or return a "duplicate" response.
+    - Count the unique `reporter_hash` entries for the client + feature combination.
+    - If the count reaches 3, flag that specific feature on the client as "Level 2" (eligible for syncing to devices).
+
+### **Accessibility & API Contract**
+
+- Ensure API error responses (e.g., "You have already reported this client for this feature") are returned in the standard JSON envelope so the Android app can easily map them to user-friendly, TalkBack-accessible UI alerts later.
+
+### **Test Plan (TDD Acceptance Criteria)**
+
+- **Laravel Test 1 (Data Privacy):** Assert that submitting a report with raw data successfully hashes the information and _only_ the 64-character SHA-256 strings are saved in the test database.
+- **Laravel Test 2 (Level 1 Buffer):** Assert that a client with 1 or 2 unique reports remains classified as Level 1 and does not appear in "Level 2" queries.
+- **Laravel Test 3 (Anti-Spam):** Assert that if the same `reporter_hash` submits the same `feature_id` for the same `client_hash` multiple times, the report count remains strictly at 1.
+- **Laravel Test 4 (Level 2 Promotion):** Assert that when a 3rd distinct `reporter_hash` submits the same `feature_id` for a client, the system accurately promotes that client's feature status to Level 2.

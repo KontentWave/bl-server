@@ -12,9 +12,41 @@ class DeviceSignatureService
         ], JSON_THROW_ON_ERROR);
     }
 
+    public function reportPayload(string $clientPhoneNumber, string $feature, string $publicKey): string
+    {
+        return json_encode([
+            'client_phone_number' => $clientPhoneNumber,
+            'feature' => $feature,
+            'public_key' => $this->normalizePublicKey($publicKey),
+        ], JSON_THROW_ON_ERROR);
+    }
+
     public function verify(string $challengeId, string $publicKey, string $signature): bool
     {
         return $this->verificationDiagnostics($challengeId, $publicKey, $signature)['verified'];
+    }
+
+    public function verifyReport(string $clientPhoneNumber, string $feature, string $publicKey, string $signature): bool
+    {
+        $decodedSignature = base64_decode($signature, true);
+
+        if ($decodedSignature === false) {
+            return false;
+        }
+
+        $normalizedPublicKey = $this->normalizePublicKey($publicKey);
+        $publicKeyResource = openssl_pkey_get_public($normalizedPublicKey);
+
+        if ($publicKeyResource === false) {
+            return false;
+        }
+
+        return openssl_verify(
+            $this->reportPayload($clientPhoneNumber, $feature, $normalizedPublicKey),
+            $decodedSignature,
+            $publicKeyResource,
+            OPENSSL_ALGO_SHA256,
+        ) === 1;
     }
 
     public function normalizePublicKey(string $publicKey): string

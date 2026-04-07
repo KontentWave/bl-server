@@ -287,3 +287,67 @@ Important interoperability note:
 - Treat `data.challenge_id` as sensitive challenge state and avoid persisting it longer than necessary.
 - Treat `otp_expires_at` as server authority.
 - Respect `meta.retryable` when deciding whether Android should offer retry vs. a hard stop.
+
+## POST /api/reports
+
+Submits a new worker report into the zero-knowledge reporting pipeline.
+
+### Request
+
+```json
+{
+    "client_phone_number": "+421900123456",
+    "feature": "no_show",
+    "public_key": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----",
+    "signature": "base64-signature"
+}
+```
+
+### Success `201 Created`
+
+```json
+{
+    "success": true,
+    "code": "report.created",
+    "data": {
+        "client_hash": "64-char-sha256",
+        "reporter_hash": "64-char-sha256",
+        "feature": "no_show",
+        "feature_label": "No-Show",
+        "unique_reporter_count": 1,
+        "level": "level_1",
+        "ready_for_sync": false
+    },
+    "meta": {}
+}
+```
+
+### Canonical Payload To Sign
+
+Laravel verifies the report signature against a compact JSON string with exactly these fields and this order:
+
+```json
+{
+    "client_phone_number": "+421900123456",
+    "feature": "no_show",
+    "public_key": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+}
+```
+
+The backend equivalent is:
+
+```php
+json_encode([
+    'client_phone_number' => $normalizedClientPhoneNumber,
+    'feature' => $feature,
+    'public_key' => $normalizedPublicKey,
+], JSON_THROW_ON_ERROR);
+```
+
+### Failure Notes
+
+- `validation_failed`: request fields are missing or invalid.
+- `device_not_bound`: the provided public key is not bound to a verified worker.
+- `signature_invalid`: the report signature does not match the canonical payload.
+- `duplicate_report`: the same bound reporter has already submitted the same feature for the same client.
+- `client_phone_number_invalid`: the client phone number could not be normalized into supported E.164 form.
