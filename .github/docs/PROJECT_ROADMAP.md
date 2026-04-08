@@ -6,7 +6,7 @@ To build a highly secure, privacy-first Android application and Laravel backend 
 
 ## 🎯 MVP (Minimal Viable Product) Definition
 
-The MVP will be an Android application (distributed directly via APK) and a Laravel API. It will successfully bind to a user's device hardware, verify their identity via an active escort advertisement, sync a local encrypted database of "Level 2" (verified dangerous) hashed phone numbers, and display a warning overlay during incoming calls from those numbers.
+The MVP will be an Android application (distributed directly via APK) and a Laravel API. It will successfully bind to a user's device hardware, verify their identity via an active escort advertisement, perform signed real-time checks against Level 2 (verified dangerous) hashed phone numbers, and display a warning overlay during incoming calls from those numbers.
 
 ---
 
@@ -26,24 +26,28 @@ Status: complete for the current MVP Phase 1 scope, including a successful end-t
 
 _Goal: Implement the Level 1 (Buffer) and Level 2 (Active) reporting logic securely on the server._
 
+Status: complete for the current MVP Phase 2 scope, with reporting, duplicate prevention, and Level 2 promotion covered by backend tests.
+
 - **Laravel:** Design the database schema to store _only_ SHA-256 hashes of client numbers and worker numbers.
 - **Laravel:** Define the fixed list of reportable features (e.g., Aggressive, No-Show, Refused Protection).
 - **Laravel:** Implement the logic that counts unique reporter hashes per feature. Create the trigger that promotes a client from Level 1 (invisible) to Level 2 (syncable) when the 3-unique-reporter threshold is met.
 
-### Phase 3: Encrypted Sync & Background Operations (The Vault)
+### Phase 3: Real-Time Query API (The Oracle)
 
-_Goal: Securely push Level 2 data to the phone without draining the battery._
+_Goal: Establish a high-speed, Zero-Knowledge query endpoint to check incoming numbers in real-time without storing the database locally._
 
-- **Android:** Implement SQLCipher (Encrypted Room Database) to store the Level 2 blacklist locally.
-- **Laravel & Android:** Integrate Firebase Cloud Messaging (FCM) for silent, data-only push notifications.
-- **Android:** Set up `WorkManager` to wake up upon receiving a silent push, securely authenticate with Laravel, and download/sync the latest Level 2 hashes into the local database.
+Status: Laravel Phase 3 scope complete. The backend query endpoint, authorization path, and indexing are implemented; Android networking integration remains follow-up client work.
+
+- **Laravel:** Implement `POST /api/blacklist/check`. This endpoint accepts a `target_hash` (the SHA-256 of an incoming caller), verifies the hardware-bound device signature, and returns any associated Level 2 features (e.g., `["Aggressive"]`) or an empty array.
+- **Laravel:** Optimize the database indexing for the promoted-feature lookup path so real-time reads stay fast.
+- **Android:** Prepare the Retrofit network layer to securely formulate and sign this high-speed query, keeping the app strictly as a "Thin Client."
 
 ### Phase 4: Call Interception & UI Shield (The Shield)
 
 _Goal: The core user experience—detecting calls and warning the worker._
 
 - **Android:** Implement a `BroadcastReceiver` to detect incoming calls (`READ_PHONE_STATE`, `READ_CALL_LOG`).
-- **Android:** Build the real-time hashing logic to convert the incoming caller ID to SHA-256 and query the local Encrypted Room database instantly.
+- **Android:** Build the real-time hashing logic to convert the incoming caller ID to SHA-256 and call the signed Laravel query API instantly.
 - **Android:** Implement the `SYSTEM_ALERT_WINDOW` permission to display the red warning overlay containing the Level 2 features if a match is found.
 - **Android:** Build the UI screen for a worker to submit a new report (select from predefined features, hash the number, and send to Laravel).
 

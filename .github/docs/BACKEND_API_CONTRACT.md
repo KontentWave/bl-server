@@ -351,3 +351,58 @@ json_encode([
 - `signature_invalid`: the report signature does not match the canonical payload.
 - `duplicate_report`: the same bound reporter has already submitted the same feature for the same client.
 - `client_phone_number_invalid`: the client phone number could not be normalized into supported E.164 form.
+
+## POST /api/blacklist/check
+
+Checks whether a target hash currently has any Level 2 features.
+
+### Request
+
+```json
+{
+    "target_hash": "64-char-sha256",
+    "public_key": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----",
+    "signature": "base64-signature"
+}
+```
+
+### Success `200 OK`
+
+```json
+{
+    "success": true,
+    "code": "blacklist.checked",
+    "data": {
+        "target_hash": "64-char-sha256",
+        "features": ["Aggressive", "No-Show"]
+    },
+    "meta": {}
+}
+```
+
+If the target is unknown or only has Level 1 reports, `features` is an empty array.
+
+### Canonical Payload To Sign
+
+Laravel verifies the blacklist-check signature against a compact JSON string with exactly these fields and this order:
+
+```json
+{
+    "target_hash": "64-char-sha256",
+    "public_key": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+}
+```
+
+The backend equivalent is:
+
+```php
+json_encode([
+    'target_hash' => strtolower($targetHash),
+    'public_key' => $normalizedPublicKey,
+], JSON_THROW_ON_ERROR);
+```
+
+### Failure Notes
+
+- `validation_failed`: the target hash is malformed.
+- `blacklist_query_unauthorized`: the request is missing or has an invalid hardware-bound authorization signature.

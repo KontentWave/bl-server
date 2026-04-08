@@ -29,7 +29,7 @@ Set up the core development infrastructure, then establish a Zero-Trust, hardwar
 - ✅ **Android Test 1:** `SecurityManager` generation and hardware-backing behavior are covered by Android tests and runtime validation, with TEE/KeyMint-backed devices accepted without requiring `StrongBox` specifically.
 - ✅ **Integration Test 1:** A payload signed by the Android private key is now successfully verified by the Laravel backend after OTP verification using the stored challenge identifier and public key, confirmed by the successful physical-device Phase 1 run on 2026-04-07.
 
-## **Current Phase:** Phase 2 - Threshold Logic & Backend Database
+## Phase 2 - Threshold Logic & Backend Database
 
 Status: complete for the current Phase 2 MVP scope. The implemented reporting flow and verification evidence are now tracked in the backend code, tests, and ADRs.
 
@@ -76,3 +76,40 @@ Implement the core reporting logic securely on the Laravel backend. This include
 - ✅ **Laravel Test 3 (Anti-Spam):** Passing.
 - ✅ **Laravel Test 4 (Level 2 Promotion):** Passing.
 - ✅ **Additional coverage:** Independent feature counting is also covered so one feature can remain Level 1 while another feature on the same client starts its own promotion path.
+
+## Phase 3 - Real-Time Query API (The Oracle)
+
+Status: Laravel Phase 3 scope complete. The backend query API, authorization flow, indexing, and regression coverage are implemented; Android real-time networking wiring remains follow-up client work.
+
+### **Action**
+
+Establish a high-speed, Zero-Knowledge query endpoint on the Laravel server that allows the Android app to securely check a single hashed phone number in real-time, eliminating the need for any local database storage on the client device.
+
+### **Task Breakdown**
+
+1. ✅ **Laravel - The Query Endpoint (`POST /api/blacklist/check`):** The secure query endpoint is now implemented.
+    - **Input:** The Android app will send a `target_hash` (the SHA-256 hash of the incoming caller's number), authorized by the standard Phase 1 `public_key` and `signature`.
+    - **Logic:** Laravel now checks whether the `target_hash` maps to any `client_feature_levels` rows that are already promoted to Level 2.
+    - **Output:** The endpoint returns the human-readable labels for only those Level 2 features (for example `["Aggressive", "No-Show"]`). Unknown targets and Level 1-only targets both return a clean, empty `features` array.
+2. ✅ **Laravel - Performance Optimization:** The backend query path is now indexed for the Phase 3 access pattern, including the added migration that supports fast Level 2 lookups.
+3. **Android - Real-Time Networking Prep:** Still pending on the client side. Android should wire a Retrofit request for this signed endpoint before the Phase 4 caller-interception trigger is added.
+
+### **Implementation Notes**
+
+- The query endpoint reuses the Phase 1 device-binding trust model instead of introducing a separate API key or session layer.
+- The request signature is verified against a canonical payload containing only `target_hash` and the normalized `public_key`.
+- The backend intentionally reveals only Level 2 features. Level 1 evidence remains indistinguishable from an unknown target.
+- The current Laravel implementation returns the standard API success envelope with `code: blacklist.checked` and `data.features` as the only blacklist result surface.
+
+### **Test Plan (TDD Acceptance Criteria)**
+
+- **Laravel Test 1 (Level 2 Match):** Assert that submitting a `target_hash` that has Level 2 features returns exactly those features.
+- **Laravel Test 2 (Level 1 / Unknown Target):** Assert that submitting a `target_hash` that only has Level 1 reports, or doesn't exist at all, returns a 200 OK with an empty array (revealing no buffer data).
+- **Laravel Test 3 (Security):** Assert that the endpoint rejects queries with a 401 Unauthorized if the hardware signature is missing or invalid.
+
+### **Current Verification Status**
+
+- ✅ **Laravel Test 1 (Level 2 Match):** Passing.
+- ✅ **Laravel Test 2 (Level 1 / Unknown Target):** Passing.
+- ✅ **Laravel Test 3 (Security):** Passing.
+- ✅ **Focused regression coverage:** `CheckBlacklistTest`, `StoreReportTest`, `InitiateAuthTest`, and `VerifyAuthTest` passed together after the Phase 3 migration and index changes were applied.

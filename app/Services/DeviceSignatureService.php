@@ -21,6 +21,14 @@ class DeviceSignatureService
         ], JSON_THROW_ON_ERROR);
     }
 
+    public function blacklistCheckPayload(string $targetHash, string $publicKey): string
+    {
+        return json_encode([
+            'target_hash' => strtolower($targetHash),
+            'public_key' => $this->normalizePublicKey($publicKey),
+        ], JSON_THROW_ON_ERROR);
+    }
+
     public function verify(string $challengeId, string $publicKey, string $signature): bool
     {
         return $this->verificationDiagnostics($challengeId, $publicKey, $signature)['verified'];
@@ -43,6 +51,29 @@ class DeviceSignatureService
 
         return openssl_verify(
             $this->reportPayload($clientPhoneNumber, $feature, $normalizedPublicKey),
+            $decodedSignature,
+            $publicKeyResource,
+            OPENSSL_ALGO_SHA256,
+        ) === 1;
+    }
+
+    public function verifyBlacklistCheck(string $targetHash, string $publicKey, string $signature): bool
+    {
+        $decodedSignature = base64_decode($signature, true);
+
+        if ($decodedSignature === false) {
+            return false;
+        }
+
+        $normalizedPublicKey = $this->normalizePublicKey($publicKey);
+        $publicKeyResource = openssl_pkey_get_public($normalizedPublicKey);
+
+        if ($publicKeyResource === false) {
+            return false;
+        }
+
+        return openssl_verify(
+            $this->blacklistCheckPayload($targetHash, $normalizedPublicKey),
             $decodedSignature,
             $publicKeyResource,
             OPENSSL_ALGO_SHA256,
