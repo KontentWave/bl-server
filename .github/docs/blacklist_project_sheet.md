@@ -1,6 +1,6 @@
 ## Phase 1 - Foundation & Security Handshake
 
-Status: complete for the current Phase 1 scope. Implementation progress and evidence are tracked in `docs/PHASE_1_ANDROID_PROGRESS.md`.
+Status: complete for the current Phase 1 scope. Implementation progress and evidence are tracked in `docs/BLACKLIST_ANDROID_PROGRESS.md`.
 
 ### **Action**
 
@@ -31,7 +31,7 @@ Set up the core development infrastructure, then establish a Zero-Trust, hardwar
 
 ## Phase 2 - Threshold Logic & Backend Database
 
-Status: complete for the current Phase 2 MVP scope. The implemented reporting flow and verification evidence are now tracked in the backend code, tests, and ADRs.
+Status: complete for the current Phase 2 MVP scope. The implemented reporting flow is now validated on both the Laravel backend and the Android client, with physical-device Android evidence tracked in `docs/BLACKLIST_ANDROID_PROGRESS.md`.
 
 ### **Action**
 
@@ -76,10 +76,11 @@ Implement the core reporting logic securely on the Laravel backend. This include
 - ✅ **Laravel Test 3 (Anti-Spam):** Passing.
 - ✅ **Laravel Test 4 (Level 2 Promotion):** Passing.
 - ✅ **Additional coverage:** Independent feature counting is also covered so one feature can remain Level 1 while another feature on the same client starts its own promotion path.
+- ✅ **Android live validation:** A physical-device run on 2026-04-08 confirmed signed report creation, duplicate rejection, and independent-feature acceptance for the same client through the Android reporting UI.
 
 ## Phase 3 - Real-Time Query API (The Oracle)
 
-Status: Laravel Phase 3 scope complete. The backend query API, authorization flow, indexing, and regression coverage are implemented; Android real-time networking wiring remains follow-up client work.
+Status: complete for the current Phase 3 MVP scope. The backend query API and the Android real-time query client are both implemented, and the Android no-match path is validated on a physical device with evidence tracked in `docs/BLACKLIST_ANDROID_PROGRESS.md`.
 
 ### **Action**
 
@@ -92,7 +93,7 @@ Establish a high-speed, Zero-Knowledge query endpoint on the Laravel server that
     - **Logic:** Laravel now checks whether the `target_hash` maps to any `client_feature_levels` rows that are already promoted to Level 2.
     - **Output:** The endpoint returns the human-readable labels for only those Level 2 features (for example `["Aggressive", "No-Show"]`). Unknown targets and Level 1-only targets both return a clean, empty `features` array.
 2. ✅ **Laravel - Performance Optimization:** The backend query path is now indexed for the Phase 3 access pattern, including the added migration that supports fast Level 2 lookups.
-3. **Android - Real-Time Networking Prep:** Still pending on the client side. Android should wire a Retrofit request for this signed endpoint before the Phase 4 caller-interception trigger is added.
+3. ✅ **Android - Real-Time Networking Prep:** The Android client now exposes a signed Phase 3 query screen, wires a Retrofit request for `POST /api/blacklist/check`, and renders empty-result vs matched-feature states for the current MVP scope.
 
 ### **Implementation Notes**
 
@@ -113,3 +114,4 @@ Establish a high-speed, Zero-Knowledge query endpoint on the Laravel server that
 - ✅ **Laravel Test 2 (Level 1 / Unknown Target):** Passing.
 - ✅ **Laravel Test 3 (Security):** Passing.
 - ✅ **Focused regression coverage:** `CheckBlacklistTest`, `StoreReportTest`, `InitiateAuthTest`, and `VerifyAuthTest` passed together after the Phase 3 migration and index changes were applied.
+- ✅ **Android live validation:** A physical-device run on 2026-04-08 confirmed the signed `POST /api/blacklist/check` no-match path, including correct empty-feature rendering for an unknown target hash.

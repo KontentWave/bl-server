@@ -170,5 +170,5 @@ Tradeoffs:
 ## Follow-up Notes
 
 - Android implementation should follow `docs/BACKEND_API_CONTRACT.md` as the request/response source of truth.
-- Android implementation progress is tracked separately in `docs/PHASE_1_ANDROID_PROGRESS.md`.
+- Android implementation progress is tracked separately in `docs/BLACKLIST_ANDROID_PROGRESS.md`.
 - Future ADRs should capture later decisions such as real SMS provider selection, production scraper hardening, and re-verification strategy for long-lived device bindings.

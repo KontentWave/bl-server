@@ -1,8 +1,8 @@
-# Phase 1 Android Progress
+# Blacklist Android Progress
 
 - Status: complete
-- Last updated: 2026-04-07
-- Scope: Android client implementation for Phase 1 foundation and security handshake
+- Last updated: 2026-04-08
+- Scope: Android client implementation for Phase 1 foundation and subsequent signed client slices validated through the current Phase 2 and Phase 3 Android MVP work
 
 ## Summary
 
@@ -13,10 +13,13 @@ The current app supports:
 - escort ad URL initiation only
 - OTP challenge initiation against `POST /api/auth/initiate`
 - OTP verification against `POST /api/auth/verify`
+- signed report submission against `POST /api/reports`
+- signed blacklist queries against `POST /api/blacklist/check`
 - tolerant parsing for backend success envelopes that return `meta` as either `{}` or `[]`
 - hardware-backed signing payload generation through `SecurityManager`
 - canonical challenge payload signing with normalized PEM public key
 - onboarding UI transition from ad URL entry to OTP entry to verified success
+- verified-home navigation into Phase 2 reporting and Phase 3 query screens
 - accessibility semantics and Android UI/instrumentation test scaffolding
 
 Note: the manual runtime observations recorded on 2026-04-04 and 2026-04-05 below were captured before the 2026-04-06 Android refactor away from a StrongBox-only client requirement. Those results remain useful historical evidence, but they should not be treated as the current client-side hardware policy.
@@ -476,6 +479,61 @@ Conclusion:
 
 - the end-to-end Phase 1 Android-to-Laravel handshake is now working on a physical Android device
 - the PEM-generation fix in `PublicKeyPemEncoder.toPem(...)` resolved the canonical-payload mismatch that had caused the previous `invalid_signature` failures
+
+### Additional physical-device Phase 2 and Phase 3 live validation recorded on 2026-04-08
+
+Execution recorded on 2026-04-08 using:
+
+- runtime: physical Android device
+- device: `Redmi A5`
+- Android version: `15`
+- backend mode: local Laravel development server
+- backend base URL from device during local development: `http://127.0.0.1:8000/api/` via `adb reverse`
+- Android build config during this run: `API_BASE_URL = "http://127.0.0.1:8000/api/"`
+
+Observed Phase 2 reporting flow:
+
+1. Android opened the reporting slice from the verified home screen successfully.
+2. Android submitted a signed report for client phone number `+421900123456` with feature `no_show`.
+3. Laravel accepted the report and persisted the expected `client_hash`, `reports` row, and `client_feature_levels` row.
+4. Android then re-submitted the same client plus feature and correctly displayed the duplicate-report error returned by Laravel.
+5. Android then submitted the same client with a different feature (`aggressive`) and Laravel accepted it as an independent Level 1 feature path.
+
+Observed Phase 2 backend evidence:
+
+- Laravel reached `POST /api/reports` successfully during the physical-device run.
+- `sha256(+421900123456)` computed on Laravel matched the stored `clients.client_hash` value exactly: `0bd0a9af9829eb59a7a69b433a65f239efb0ef16ac289987e14affc6a622a469`
+- latest `reports` evidence after the independent-feature run showed both:
+    - `feature = no_show`
+    - `feature = aggressive`
+- latest `client_feature_levels` evidence after the independent-feature run showed both:
+    - `feature = no_show`, `unique_reporter_count = 1`, `is_level_two = 0`
+    - `feature = aggressive`, `unique_reporter_count = 1`, `is_level_two = 0`
+
+Observed Phase 2 Android result summary:
+
+- signed report creation on physical device: `PASS`
+- duplicate report rejection on physical device: `PASS`
+- independent feature acceptance on physical device: `PASS`
+- current promotion state after the recorded run: both tested features remained `Level 1`, as expected for a single verified reporter
+
+Observed Phase 3 query flow:
+
+1. Android opened the query slice from the verified home screen successfully.
+2. Laravel computed `sha256(+421900000001)` as `cd46747eff46383dc10018bf60878d245e47728bd05c81640f789d02d8d7d0b8` for a clean unknown target.
+3. Android submitted a signed `POST /api/blacklist/check` request with that `target_hash`.
+4. Laravel returned a successful empty result and Android displayed `No Level 2 features were returned for this target hash.`
+
+Observed Phase 3 backend evidence:
+
+- Laravel reached `POST /api/blacklist/check` successfully during the physical-device run.
+- The no-match query returned the expected empty-feature result for an unknown or Level 1-only target.
+
+Observed Phase 3 Android result summary:
+
+- signed blacklist query dispatch on physical device: `PASS`
+- no-match empty-result rendering on physical device: `PASS`
+- positive Level 2 feature-return path: not yet recorded in this document because no promoted Level 2 target was used during the 2026-04-08 run
 
 ## Scope Alignment Notes
 
