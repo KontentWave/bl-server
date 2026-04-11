@@ -33,7 +33,7 @@ class ExtractPhoneFromAdJob implements ShouldQueue
             return null;
         }
 
-        $phoneNumber = $escortAdHtmlParser->extractPrimaryPhoneNumber($html);
+        $phoneNumber = $escortAdHtmlParser->extractPrimaryPhoneNumber($html, $this->adUrl);
 
         if ($phoneNumber === null) {
             Log::info('escort_ad_extraction.phone_missing', [

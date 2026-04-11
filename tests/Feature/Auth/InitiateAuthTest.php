@@ -156,4 +156,23 @@ class InitiateAuthTest extends TestCase
 
         $this->assertCount(0, $this->fakeSmsSender->messages);
     }
+
+    public function test_it_returns_a_distinct_error_when_an_amaterky_ad_is_temporarily_disabled(): void
+    {
+        config()->set('services.escort_portal.driver', 'fixture');
+        config()->set('services.escort_portal.fixture_directory', 'tests/Fixtures/escort_ads/temporarily_disabled');
+
+        $response = $this->postJson('/api/auth/initiate', [
+            'ad_url' => 'https://amaterky.sk/32297',
+        ]);
+
+        $response
+            ->assertStatus(400)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('code', 'ad_temporarily_disabled')
+            ->assertJsonPath('meta.retryable', false)
+            ->assertJsonPath('meta.ad_state', 'temporarily_disabled');
+
+        $this->assertCount(0, $this->fakeSmsSender->messages);
+    }
 }

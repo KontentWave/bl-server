@@ -5,7 +5,9 @@ namespace Tests\Feature\Services;
 use App\Exceptions\EscortPortalTimeoutException;
 use App\Exceptions\EscortPortalUnavailableException;
 use App\Services\HttpEscortPortalClient;
+use GuzzleHttp\Psr7\Response as Psr7Response;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -57,6 +59,17 @@ class HttpEscortPortalClientTest extends TestCase
         Http::fake([
             'https://portal.example.test/escort/miriam' => Http::response('bad gateway', 502),
         ]);
+
+        $this->expectException(EscortPortalUnavailableException::class);
+
+        app(HttpEscortPortalClient::class)->fetchAdHtml('https://portal.example.test/escort/miriam');
+    }
+
+    public function test_it_raises_an_unavailable_exception_when_the_http_client_throws_a_server_error_request_exception(): void
+    {
+        Http::fake(function () {
+            throw (new Response(new Psr7Response(502, [], 'bad gateway')))->toException();
+        });
 
         $this->expectException(EscortPortalUnavailableException::class);
 

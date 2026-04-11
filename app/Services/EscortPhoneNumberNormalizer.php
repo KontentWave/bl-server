@@ -32,6 +32,14 @@ class EscortPhoneNumberNormalizer
             return '+'.substr($digits, 2);
         }
 
+        if (str_starts_with($digits, '421')) {
+            return '+'.$digits;
+        }
+
+        if (str_starts_with($digits, '0')) {
+            return '+421'.substr($digits, 1);
+        }
+
         return null;
     }
 }

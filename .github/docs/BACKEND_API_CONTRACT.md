@@ -1,8 +1,8 @@
 # Backend API Contract
 
-This document defines the Android-facing contract for the Laravel backend during Phase 1. Android should treat this as the source of truth for request and response handling.
+This document defines the Android-facing contract for the Laravel backend across the current MVP phases. Android should treat this as the source of truth for request and response handling.
 
-This document supersedes the earlier phone-number-plus-password handshake. The new Phase 1 contract is ad-URL plus SMS OTP plus hardware-bound signature.
+This document supersedes the earlier phone-number-plus-password handshake. The current verification contract is ad-URL plus SMS OTP plus hardware-bound signature. Phase 5 scraper hardening changes the backend implementation behind `POST /api/auth/initiate`, but it does not change the Android-facing request or response shape.
 
 ## Transport
 
@@ -51,7 +51,7 @@ Starts the SMS verification flow from an escort ad URL.
 
 ```json
 {
-    "ad_url": "https://www.eurogirlsescort.com/escort/miriam/..."
+    "ad_url": "https://amaterky.sk/32116"
 }
 ```
 
@@ -103,6 +103,61 @@ Example ad did not yield a usable phone number:
     }
 }
 ```
+
+Example ad is temporarily disabled by its owner:
+
+```json
+{
+    "success": false,
+    "code": "ad_temporarily_disabled",
+    "message": "The provided ad is temporarily disabled by its owner.",
+    "errors": {
+        "ad_url": ["The provided ad is temporarily disabled by its owner."]
+    },
+    "meta": {
+        "retryable": false,
+        "ad_state": "temporarily_disabled"
+    }
+}
+```
+
+Example escort portal timeout:
+
+```json
+{
+    "success": false,
+    "code": "escort_portal_timeout",
+    "message": "Escort portal verification timed out.",
+    "errors": {},
+    "meta": {
+        "retryable": true
+    }
+}
+```
+
+Example escort portal unavailable:
+
+```json
+{
+    "success": false,
+    "code": "escort_portal_unavailable",
+    "message": "Escort portal verification is currently unavailable.",
+    "errors": {},
+    "meta": {
+        "retryable": true,
+        "upstream_status": 502
+    }
+}
+```
+
+### Current backend implementation notes
+
+- The current live-validated production scraper path is `amaterky.sk`.
+- The backend currently routes live portal fetches through the rotating proxy configuration in `config/scraping.php` when enabled.
+- For `amaterky.sk`, extraction currently prefers `tel:` links, then `sms:` links, then the nearby contact heading.
+- For `amaterky.sk`, the backend also recognizes the disabled-ad heading `Vypnutý zadávateľom` and classifies it separately from a generic extraction failure.
+- The backend only proceeds to phone extraction when the ad is in a phone-bearing state. A temporarily disabled ad is treated as a valid ad-state classification but a hard stop for the current initiate attempt.
+- Android should treat these as backend implementation details and continue to rely only on the documented success and failure envelopes.
 
 ## POST /api/auth/verify
 
@@ -184,35 +239,6 @@ Example unknown or already-used challenge:
 }
 ```
 
-Example escort portal timeout:
-
-```json
-{
-    "success": false,
-    "code": "escort_portal_timeout",
-    "message": "Escort portal verification timed out.",
-    "errors": {},
-    "meta": {
-        "retryable": true
-    }
-}
-```
-
-Example escort portal unavailable:
-
-```json
-{
-    "success": false,
-    "code": "escort_portal_unavailable",
-    "message": "Escort portal verification is currently unavailable.",
-    "errors": {},
-    "meta": {
-        "retryable": true,
-        "upstream_status": 502
-    }
-}
-```
-
 ## Android Handshake Notes
 
 These rules are part of the contract. Android should not infer them.
@@ -277,7 +303,7 @@ Important interoperability note:
 
 - Treat `errors` as an object in all cases. It may be empty for non-validation domain failures.
 - Treat `escort_portal_timeout` and `escort_portal_unavailable` as retryable when `meta.retryable` is `true`.
-- Treat `phone_extraction_failed`, `signature_invalid`, `otp_invalid_or_expired`, and `challenge_not_found` as hard stops for the current verification attempt unless the user starts a new challenge.
+- Treat `phone_extraction_failed`, `ad_temporarily_disabled`, `signature_invalid`, `otp_invalid_or_expired`, and `challenge_not_found` as hard stops for the current verification attempt unless the user starts a new challenge.
 
 ## Android Client Guidance
 
