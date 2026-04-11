@@ -1,8 +1,8 @@
 # Blacklist Android Progress
 
 - Status: complete
-- Last updated: 2026-04-08
-- Scope: Android client implementation for Phase 1 foundation and subsequent signed client slices validated through the current Phase 2 and Phase 3 Android MVP work
+- Last updated: 2026-04-09
+- Scope: Android client implementation completed through the current Phase 4 Shield MVP happy path, including physical-device validation of the incoming-call warning overlay against a Level 2 caller match
 
 ## Summary
 
@@ -20,7 +20,13 @@ The current app supports:
 - canonical challenge payload signing with normalized PEM public key
 - onboarding UI transition from ad URL entry to OTP entry to verified success
 - verified-home navigation into Phase 2 reporting and Phase 3 query screens
+- verified-home Shield readiness status with permission and overlay actions for Phase 4 setup
+- manifest-registered incoming-call interception that normalizes and hashes caller numbers and reuses the signed Phase 3 query stack
+- verified-home live Shield diagnostics for the latest ringing/query event
+- `WindowManager`-driven warning overlay with accessibility announcement and processor-driven show/dismiss decisions
 - accessibility semantics and Android UI/instrumentation test scaffolding
+
+This means the Android client is currently complete through the documented Phase 3 MVP scope, and the current Phase 4 Shield MVP happy path is also implemented and physically validated. The app now includes the Shield readiness foundation, the incoming-call interception plus signed caller-query pipeline, and a live warning overlay path that was confirmed on a physical phone for a prepared Level 2 caller match, while reusing the already implemented Phase 2 reporting UI. Remaining Phase 4 work is now limited to optional hardening and broader edge-case coverage, not the first end-to-end runtime proof.
 
 Note: the manual runtime observations recorded on 2026-04-04 and 2026-04-05 below were captured before the 2026-04-06 Android refactor away from a StrongBox-only client requirement. Those results remain useful historical evidence, but they should not be treated as the current client-side hardware policy.
 
@@ -112,6 +118,66 @@ Relevant commit:
 
 - `dda5402` Add onboarding accessibility and Android test coverage
 
+### Slice 7: Phase 4 Shield readiness foundation
+
+Implemented:
+
+- Phase 4 Shield readiness domain model and evaluator
+- Android permission checker for `READ_PHONE_STATE`, `READ_CALL_LOG`, and overlay capability
+- verified-home Shield status card with active / action-required / blocked states
+- direct verified-home actions for phone permission requests, overlay settings, and readiness refresh
+- initial Phase 4 test coverage for Shield state classification and verified-home UI rendering
+
+Key files:
+
+- `app/src/main/java/com/example/myapplication/shield/ShieldReadiness.kt`
+- `app/src/main/java/com/example/myapplication/shield/ShieldPermissionChecker.kt`
+- `app/src/main/java/com/example/myapplication/MainActivity.kt`
+- `app/src/main/java/com/example/myapplication/ui/home/HomeScreen.kt`
+- `app/src/androidTest/java/com/example/myapplication/ui/home/HomeScreenTest.kt`
+- `app/src/test/java/com/example/myapplication/shield/ShieldReadinessEvaluatorTest.kt`
+
+### Slice 8: Phase 4 incoming-call query foundation
+
+Implemented:
+
+- manifest-registered incoming-call receiver for ringing-state events
+- pure caller normalization to E.164-oriented format for local/device testing
+- local SHA-256 hashing for normalized caller numbers
+- reuse of the existing signed Phase 3 blacklist-query repository from the receiver path
+- persisted live Shield diagnostics surfaced on the verified-home screen for manual testing
+- focused unit coverage for caller normalization, hash parity, and incoming-call processor outcomes
+
+Key files:
+
+- `app/src/main/java/com/example/myapplication/shield/IncomingCallReceiver.kt`
+- `app/src/main/java/com/example/myapplication/shield/IncomingCallProcessor.kt`
+- `app/src/main/java/com/example/myapplication/shield/CallerNumberNormalizer.kt`
+- `app/src/main/java/com/example/myapplication/shield/CallerNumberHasher.kt`
+- `app/src/main/java/com/example/myapplication/shield/ShieldLiveStatus.kt`
+- `app/src/main/java/com/example/myapplication/data/BlacklistQueryRepositoryProvider.kt`
+- `app/src/test/java/com/example/myapplication/shield/CallerNumberNormalizerTest.kt`
+- `app/src/test/java/com/example/myapplication/shield/IncomingCallProcessorTest.kt`
+
+### Slice 9: Phase 4 warning overlay foundation
+
+Implemented:
+
+- `WindowManager`-based warning presenter for Level 2 caller matches
+- accessibility announcement path for the warning overlay
+- processor-driven overlay show on match and stale-overlay dismissal on new ringing/no-match paths
+- persisted overlay outcome diagnostics in the verified-home Shield card
+- focused processor tests for shown vs dismissed overlay outcomes
+
+Key files:
+
+- `app/src/main/java/com/example/myapplication/shield/ShieldWarningPresenter.kt`
+- `app/src/main/java/com/example/myapplication/shield/WindowManagerShieldWarningPresenter.kt`
+- `app/src/main/res/layout/shield_warning_overlay.xml`
+- `app/src/main/java/com/example/myapplication/shield/IncomingCallProcessor.kt`
+- `app/src/main/java/com/example/myapplication/shield/ShieldLiveStatus.kt`
+- `app/src/test/java/com/example/myapplication/shield/IncomingCallProcessorTest.kt`
+
 ## Verification Evidence
 
 ### Confirmed build/test runs already executed
@@ -161,6 +227,85 @@ Result:
 
 - `PASS` for a canonical-payload fix that now escapes forward slashes as `\/`, matching Laravel/PHP `json_encode(...)` behavior.
 - The most likely cause of the previously observed `auth.verify.rejected.invalid_signature` runtime failure was Android signing a payload with raw `/` characters while Laravel verified a payload with escaped `\/` characters.
+
+Additional validation executed on 2026-04-09 for the initial Phase 4 Shield slice:
+
+- `:app:testDebugUnitTest`
+- `:app:assembleDebug`
+- `:app:assembleDebugAndroidTest`
+
+Result:
+
+- `PASS` after adding the Shield readiness model, Android permission checker, verified-home readiness card, and Phase 4 state/UI tests.
+- This validates the first implemented Phase 4 slice without claiming that incoming-call interception or the warning overlay are complete yet.
+
+Additional validation executed on 2026-04-09 for the incoming-call query slice:
+
+- `:app:testDebugUnitTest --tests com.example.myapplication.shield.ShieldReadinessEvaluatorTest --tests com.example.myapplication.shield.CallerNumberNormalizerTest --tests com.example.myapplication.shield.IncomingCallProcessorTest`
+- `:app:assembleDebug`
+- `:app:assembleDebugAndroidTest`
+
+Result:
+
+- `PASS` after adding the manifest-registered incoming-call receiver, caller normalization/hash utilities, shared query provider reuse, and verified-home live diagnostics.
+- This validates the receiver/query foundation, but it does not yet prove a user-visible over-dialer warning because the overlay slice is still pending.
+
+Additional validation executed on 2026-04-09 for the warning overlay slice:
+
+- `:app:testDebugUnitTest`
+- `:app:assembleDebug`
+- `:app:assembleDebugAndroidTest`
+
+Result:
+
+- `PASS` after adding the `WindowManager` warning presenter, overlay outcome persistence, and processor-driven overlay show/dismiss behavior.
+- The overlay implementation is now present in the Android workspace, but real phone-call validation is still required before claiming end-to-end Shield runtime completion.
+
+### Physical-device Phase 4 Shield live validation recorded on 2026-04-09
+
+Execution recorded on 2026-04-09 using:
+
+- runtime: physical Android device
+- device: `Redmi A5`
+- Android version: `15`
+- backend mode: local Laravel development server with manually seeded Level 2 caller state
+- backend base URL from device during local development: `http://127.0.0.1:8000/api/` via `adb reverse`
+- tested incoming caller: `+421903223183`
+- prepared Level 2 backend feature for the caller: `Aggressive`
+
+Observed manual flow:
+
+1. The verified phone had already completed the Phase 1 device-binding flow and showed Shield permissions as available in the verified-home app shell.
+2. Laravel-side data was manually seeded so caller `+421903223183` existed as a promoted Level 2 target for feature `aggressive`.
+3. A real incoming call from `+421903223183` reached the verified worker phone.
+4. The Android Shield pipeline intercepted the ringing event, normalized and hashed the caller, and sent the signed Phase 3 query request.
+5. Laravel returned a Level 2 match for feature `Aggressive`.
+6. Android displayed the red over-dialer warning overlay during the incoming call and the verified-home diagnostics later showed that the overlay outcome was `shown`.
+
+Observed Android evidence:
+
+- call-screen overlay headline: `Warning: reported caller`
+- call-screen overlay body confirmed the incoming caller `+421903223183`
+- call-screen overlay body confirmed returned Level 2 feature: `Aggressive`
+- call-screen overlay body displayed the target hash `47663b65b3296181d6d52e5e6fe0758302a2e944c9b4f7482bd5bbb73e196741`
+- verified-home Shield status confirmed: `All required permissions are available. Incoming-call monitoring and overlay warning setup are ready.`
+- verified-home live diagnostics confirmed: `Level 2 match returned`
+- verified-home live diagnostics confirmed: `Overlay outcome: shown`
+
+Observed Android result summary:
+
+- physical incoming-call interception: `PASS`
+- caller normalization/hash pipeline for the tested call: `PASS`
+- signed Shield query dispatch on physical device: `PASS`
+- Level 2 feature match rendering on physical device: `PASS`
+- over-dialer warning overlay display on physical device: `PASS`
+- verified-home post-call diagnostics for the same event: `PASS`
+
+Conclusion:
+
+- the core Phase 4 Shield user experience is now validated on a physical Android device
+- a prepared Level 2 caller match successfully triggers the red warning overlay during a real incoming call
+- Phase 4 no longer depends on first-time live validation; remaining work is optional hardening, repeatability, and additional edge-path coverage
 
 ### Connected Android test execution recorded
 
@@ -539,7 +684,7 @@ Observed Phase 3 Android result summary:
 
 ### `docs/blacklist_project_sheet.md`
 
-Still valid as the Phase 1 implementation checklist and acceptance criteria source.
+Still valid as the cross-phase implementation checklist. As of 2026-04-09, its Phase 4 section has been aligned with actual Android progress: the reporting UI is already implemented from Phase 2, so Phase 4 now focuses on the Shield runtime flow and app-shell readiness rather than rebuilding reporting from scratch.
 
 ### `docs/ADRs/1_foundation+security_handshake.md`
 
@@ -551,6 +696,7 @@ Still valid as the Android request/response source of truth. No contract field c
 
 ## Next Recommended Steps
 
-1. Optionally repeat the final success flow on an emulator for additional evidence beyond the physical-device run.
-2. Remove or tone down temporary debug diagnostics once both Android and Laravel teams are satisfied the issue is closed.
-3. Align the Laravel success envelope back to `meta: {}` when convenient, even though the Android client now tolerates `meta: []`.
+1. Decide on the preferred dev-only backend reset/seeding approach for repeatable Phase 4 physical-phone scenarios.
+2. Add focused tests for more receiver-triggered edge cases and overlay dismissal behavior across multiple ringing events.
+3. Optionally record an additional physical-device no-match call scenario and any denial-path behavior for permissions or overlay capability.
+4. Optionally remove or tone down temporary debug diagnostics once both Android and Laravel teams are satisfied the Phase 1 investigation is fully closed.

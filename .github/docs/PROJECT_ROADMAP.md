@@ -36,7 +36,7 @@ Status: complete for the current MVP Phase 2 scope, with reporting, duplicate pr
 
 _Goal: Establish a high-speed, Zero-Knowledge query endpoint to check incoming numbers in real-time without storing the database locally._
 
-Status: Laravel Phase 3 scope complete. The backend query endpoint, authorization path, and indexing are implemented; Android networking integration remains follow-up client work.
+Status: complete for the current MVP scope. The Laravel query endpoint is implemented and the Android client now exercises the signed query path during the Phase 4 Shield flow.
 
 - **Laravel:** Implement `POST /api/blacklist/check`. This endpoint accepts a `target_hash` (the SHA-256 of an incoming caller), verifies the hardware-bound device signature, and returns any associated Level 2 features (e.g., `["Aggressive"]`) or an empty array.
 - **Laravel:** Optimize the database indexing for the promoted-feature lookup path so real-time reads stay fast.
@@ -46,10 +46,24 @@ Status: Laravel Phase 3 scope complete. The backend query endpoint, authorizatio
 
 _Goal: The core user experience—detecting calls and warning the worker._
 
+Status: complete for the current MVP happy path. A physical-device run confirmed incoming-call interception, signed caller lookup, and a visible over-dialer warning overlay for a prepared Level 2 caller match.
+
 - **Android:** Implement a `BroadcastReceiver` to detect incoming calls (`READ_PHONE_STATE`, `READ_CALL_LOG`).
 - **Android:** Build the real-time hashing logic to convert the incoming caller ID to SHA-256 and call the signed Laravel query API instantly.
 - **Android:** Implement the `SYSTEM_ALERT_WINDOW` permission to display the red warning overlay containing the Level 2 features if a match is found.
 - **Android:** Build the UI screen for a worker to submit a new report (select from predefined features, hash the number, and send to Laravel).
+
+### Phase 5: Production Scraper Hardening (`amaterky.sk`)
+
+_Goal: Replace the Phase 1 dummy scraper path with a production-ready backend extraction pipeline that can survive real portal markup and rotating-proxy conditions._
+
+Status: in progress, with the first backend slice complete and live-validated. Rotating-proxy telemetry is implemented, `amaterky.sk` parsing now uses a dedicated portal adapter, and a live extraction run returned `+421944493008` from `https://amaterky.sk/32116`.
+
+- **Laravel:** Centralize rotating-proxy settings and reuse them in both the probe tooling and the live escort-portal HTTP client.
+- **Laravel:** Record per-attempt transport telemetry so proxy-pool health can be separated from parser bugs.
+- **Laravel:** Route ad parsing through portal-specific adapters, starting with `amaterky.sk` and selector priority `tel:` -> `sms:` -> contact heading.
+- **Laravel:** Normalize Slovak phone-number formats into strict E.164 so Phase 1 verification and Phase 4 incoming-call matching stay aligned.
+- **Next:** add more portal adapters and long-term hardening once the current `amaterky.sk` slice remains stable.
 
 ---
 
