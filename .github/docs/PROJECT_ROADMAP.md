@@ -59,6 +59,8 @@ _Goal: Replace the Phase 1 dummy scraper path with a production-ready backend ex
 
 Status: in progress, with the first backend slice complete and live-validated. Rotating-proxy telemetry is implemented, `amaterky.sk` parsing now uses a dedicated portal adapter, and a live extraction run returned `+421944493008` from `https://amaterky.sk/32116`.
 
+Current integration note: the hosted backend at `https://bcuszlr92817.zafo-forum.sk` is now ready for Android integration testing, but OTP onboarding is still running in a temporary trial-SMS testing mode. Android should use the hosted URL now, while the team should avoid treating the current override-backed OTP path as final production behavior until `APP_ENV=production` and the phone override are restored to true live settings.
+
 - **Laravel:** Centralize rotating-proxy settings and reuse them in both the probe tooling and the live escort-portal HTTP client.
 - **Laravel:** Record per-attempt transport telemetry so proxy-pool health can be separated from parser bugs.
 - **Laravel:** Route ad parsing through portal-specific adapters, starting with `amaterky.sk` and selector priority `tel:` -> `sms:` -> contact heading.

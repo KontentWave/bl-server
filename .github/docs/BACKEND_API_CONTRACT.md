@@ -4,6 +4,8 @@ This document defines the Android-facing contract for the Laravel backend across
 
 This document supersedes the earlier phone-number-plus-password handshake. The current verification contract is ad-URL plus SMS OTP plus hardware-bound signature. Phase 5 scraper hardening changes the backend implementation behind `POST /api/auth/initiate`, but it does not change the Android-facing request or response shape.
 
+The same response schema remains unchanged when the hosted backend is running in the temporary Vonage-trial integration mode documented in ADR 5. Android should continue to parse the normal success and failure envelopes and should not branch on whether OTP routing is currently live-scraped or temporarily redirected to a verified test number.
+
 ## Transport
 
 - Base path: `/api`

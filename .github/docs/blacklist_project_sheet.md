@@ -163,6 +163,25 @@ Build the core Android user experience. The app must detect incoming phone calls
 
 Replace the Phase 1 dummy scraper path with a production-ready Laravel extraction pipeline. The current rollout now includes rotating-proxy telemetry, a live `amaterky.sk` portal adapter, and E.164 normalization that was validated against a real ad fetched through the rotating endpoint.
 
+### **Current Hosted Integration State**
+
+- ✅ The hosted Laravel backend at `https://bcuszlr92817.zafo-forum.sk` is now reachable for Android integration work.
+- ✅ Real hosted `POST /api/auth/initiate` requests are succeeding against the deployed server.
+- ✅ Vonage SMS API wiring is implemented on the backend and validated end to end through real trial-account SMS delivery.
+- ⚠️ The current hosted OTP path is intentionally running in a temporary test configuration while Android integration proceeds:
+    - the server is using Vonage trial SMS delivery
+    - the server is forcing OTP delivery to a verified test number via `ESCORT_PORTAL_DEVELOPMENT_PHONE_OVERRIDE`
+    - the hosted environment was temporarily switched away from `production` so that override can apply
+- ✅ The override was last validated against the verified test number `+421917047260`, with the public initiate endpoint returning masked phone metadata `+421***260`.
+- ⚠️ This means Android can now integrate against the real hosted backend URL, but that flow is still an integration-test path, not the final live production identity path.
+
+### **Android Handoff Notes**
+
+- Android should now target `https://bcuszlr92817.zafo-forum.sk` instead of a local Laravel base URL for the current integration slice.
+- Android should continue to treat Laravel as the source of truth for masked phone metadata, OTP expiry, and signed verification behavior.
+- During this hosted integration slice, Android should expect OTPs to arrive on the currently configured verified Vonage test number rather than on the real scraped ad number.
+- Before declaring the onboarding flow production-ready, Laravel must be returned to `APP_ENV=production` and the temporary `ESCORT_PORTAL_DEVELOPMENT_PHONE_OVERRIDE` must be removed.
+
 ### **Task Breakdown**
 
 1. ✅ **Laravel - Rotating proxy configuration and telemetry:** The backend now supports a dedicated rotating-proxy config surface in `.env` and `config/scraping.php`, plus a standalone `scraper:probe-proxy` command that records per-attempt telemetry into `scraper_proxy_attempts`. This was added first so transport health could be measured before tightening portal-specific parsing.
@@ -185,4 +204,6 @@ Replace the Phase 1 dummy scraper path with a production-ready Laravel extractio
 - ✅ **Focused extraction suite:** `ExtractPhoneFromAdJobTest`, `HttpEscortPortalClientTest`, `AmaterkySkPhoneExtractorTest`, and `EscortPhoneNumberNormalizerTest` passed together after the portal-adapter slice landed.
 - ✅ **Real rotating-proxy transport validation:** repeated 100-attempt probe runs against `https://amaterky.sk/32116` improved from an initially bad Webshare pool to roughly 96-100 successful attempts after pool replacement, which is strong evidence that the transport path is operational enough for the current backend rollout.
 - ✅ **Live extraction validation:** a direct Laravel execution of `ExtractPhoneFromAdJob('https://amaterky.sk/32116')` through the rotating proxy returned `+421944493008`.
+- ✅ **Hosted OTP transport validation:** real hosted `POST /api/auth/initiate` requests now succeed through the deployed domain, and a Vonage trial SMS with body `Your Blacklist verification code is 322132[FREE SMS DEMO, TEST MESSAGE]` was received on a verified test number.
+- ✅ **Hosted Android handoff validation:** after switching the temporary override to `+421917047260`, the public initiate endpoint returned challenge `3fc93e83-6a7e-4312-9e58-8df6305829ae` with masked phone metadata `+421***260`, proving that the hosted backend is ready for Android integration testing against the real server URL.
 - ⚠️ **Remaining Phase 5 work:** broaden portal coverage beyond `amaterky.sk`, add more production hardening around page-shape drift, and decide whether periodic proxy probing should remain scheduled in non-production only or graduate into a longer-term operational signal.

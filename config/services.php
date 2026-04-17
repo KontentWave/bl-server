@@ -47,6 +47,11 @@ return [
     'sms' => [
         'driver' => env('SMS_DRIVER', 'log'),
         'log_otp_in_non_production' => (bool) env('SMS_LOG_OTP_IN_NON_PRODUCTION', true),
+        'from' => env('VONAGE_SMS_FROM', 'Blacklist'),
+        'vonage' => [
+            'key' => env('VONAGE_API_KEY'),
+            'secret' => env('VONAGE_API_SECRET'),
+        ],
     ],
 
 ];

@@ -7,6 +7,7 @@ use App\Contracts\SmsSender;
 use App\Services\FixtureEscortPortalClient;
 use App\Services\HttpEscortPortalClient;
 use App\Services\LogSmsSender;
+use App\Services\VonageSmsSender;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -22,7 +23,13 @@ class AppServiceProvider extends ServiceProvider
                 default => $app->make(HttpEscortPortalClient::class),
             };
         });
-        $this->app->bind(SmsSender::class, LogSmsSender::class);
+
+        $this->app->bind(SmsSender::class, function ($app) {
+            return match (config('services.sms.driver', 'log')) {
+                'vonage' => $app->make(VonageSmsSender::class),
+                default => $app->make(LogSmsSender::class),
+            };
+        });
     }
 
     /**
