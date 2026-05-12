@@ -157,7 +157,7 @@ Build the core Android user experience. The app must detect incoming phone calls
 - ✅ **Integration Test 1:** A physical-device run on 2026-04-09 confirmed the end-to-end Shield MVP happy path: a real incoming call from `+421903223183` triggered Android call interception, a signed Laravel query, a returned Level 2 `Aggressive` match, and a visible red over-dialer warning overlay.
 - ⚠️ **Remaining optional follow-up coverage:** explicit permission-denial handling, no-match physical-call evidence, and broader overlay dismissal behavior across repeated calls or device-specific OEM variants can still be recorded as hardening work, but they no longer block the current Phase 4 MVP happy-path claim.
 
-## **Current Phase:** Phase 5 - Production Scraper Hardening (`amaterky.sk`)
+## Phase 5 - Production Scraper Hardening (`amaterky.sk`)
 
 ### **Action**
 
@@ -207,3 +207,51 @@ Replace the Phase 1 dummy scraper path with a production-ready Laravel extractio
 - ✅ **Hosted OTP transport validation:** real hosted `POST /api/auth/initiate` requests now succeed through the deployed domain, and a Vonage trial SMS with body `Your Blacklist verification code is 322132[FREE SMS DEMO, TEST MESSAGE]` was received on a verified test number.
 - ✅ **Hosted Android handoff validation:** after switching the temporary override to `+421917047260`, the public initiate endpoint returned challenge `3fc93e83-6a7e-4312-9e58-8df6305829ae` with masked phone metadata `+421***260`, proving that the hosted backend is ready for Android integration testing against the real server URL.
 - ⚠️ **Remaining Phase 5 work:** broaden portal coverage beyond `amaterky.sk`, add more production hardening around page-shape drift, and decide whether periodic proxy probing should remain scheduled in non-production only or graduate into a longer-term operational signal.
+
+## **Current Phase:** Phase 6 - The Expo Pivot (Cross-Platform Client & Native Bridges)
+
+### **Context & Architecture Pivot**
+
+The Laravel backend (Phases 1-5) is fully complete, physically tested, and strictly adheres to the `BACKEND_API_CONTRACT.md`. We are transitioning from a legacy Android-only Kotlin client to a unified cross-platform application using **Expo and React Native (TypeScript)**.
+
+Because this application requires Zero-Trust hardware-backed cryptography and deep OS call interception, this Expo project will heavily utilize **Continuous Native Generation (CNG)**, custom Expo Native Modules, and Config Plugins.
+
+### **Action**
+
+Establish the Expo UI foundation, rebuild the networking layer to communicate with the existing Laravel API, and implement the custom Native Bridges required for hardware cryptography (`CryptoVault`) and background call monitoring (`The Shield`).
+
+### **Task Breakdown**
+
+1. **Expo Foundation & Routing:** Initialize the Expo SDK with Expo Router. Build the foundational UI screens (Onboarding/Ad URL input, OTP entry, Verified Home, and Reporting Form).
+2. **Networking Layer:** Implement Axios or Fetch instances strictly mapped to the `BACKEND_API_CONTRACT.md`. Ensure the client handles the `meta.retryable` state and the standard JSON response envelopes correctly.
+3. **Ad-Hoc Customization 1 (CryptoVault Native Module):** Create a custom Expo Native Module to handle the Phase 1 & Phase 3 cryptography.
+
+- **Android (Kotlin):** Implement Android Keystore (TEE/StrongBox) key generation (ECDSA) and payload signing.
+- **iOS (Swift):** Implement the Secure Enclave equivalent.
+- **Bridge:** Expose a simple asynchronous TypeScript method: `CryptoVault.signPayload(canonicalJson: string): Promise<string>`.
+
+4. **Ad-Hoc Customization 2 (The Shield Config Plugin):** Create the background interception capabilities.
+
+- **Android:** Inject the `BroadcastReceiver` (for `READ_PHONE_STATE`), the E.164 hashing logic, and the `SYSTEM_ALERT_WINDOW` overlay code into the Android build via an Expo Config Plugin.
+- **iOS:** Setup the architectural foundation for an iOS Call Directory App Extension (to be fully fleshed out in Phase 7).
+
+### **Accessibility**
+
+- Use React Native's `accessible={true}` and `accessibilityLabel` props to match the exact TalkBack/VoiceOver semantics we established in the legacy Kotlin app.
+- Ensure the Red Warning Overlay (when triggered by the Android Config Plugin) forces an immediate accessibility announcement.
+
+### **Test Plan (Acceptance Criteria)**
+
+- **Expo Test 1 (UI/Routing):** Assert that the user can navigate from the Ad URL screen to the OTP screen, and that field validation works.
+- **Expo Test 2 (Native Bridge):** Assert that calling the `CryptoVault.signPayload()` method successfully passes data to the native layer and returns a Base64 signature string.
+- **Integration Test 1:** Assert that the Expo networking layer successfully formats the canonical JSON payload (handling forward-slash escaping `\/` as defined in the API contract) before sending the `POST /api/auth/verify` request.
+
+---
+
+### 🚀 Next Steps for Copilot Setup:
+
+When you create your new folder and run `npx create-expo-app@latest`, I highly recommend pasting this exact prompt to GitHub Copilot in your editor to properly reset its context:
+
+> _"Copilot, we are beginning Phase 6 of our project. The Laravel backend is fully finished. We are pivoting from a legacy Kotlin app to Expo/React Native. Please review the `expo_project_sheet.md` and the `BACKEND_API_CONTRACT.md`. Our first goal is to set up the basic Expo Router UI and the Axios networking layer. Acknowledge this pivot, and let me know when you are ready to generate the first UI screens."_
+
+Are you ready to dive into the TypeScript UI, or would you like to start by defining the exact BDD `.feature` file for the **CryptoVault Native Module** so Copilot knows exactly how the bridge needs to behave?

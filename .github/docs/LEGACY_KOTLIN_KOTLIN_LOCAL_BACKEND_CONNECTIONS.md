@@ -1,6 +1,12 @@
 # Android Local Backend Connections
 
-Use these local backend base URLs only for development and testing.
+The Android client now defaults to the hosted backend for the current Phase 5 integration flow:
+
+```text
+https://bcuszlr92817.zafo-forum.sk/api/
+```
+
+Use the local backend base URLs below only for development, diagnostics, or fallback testing against a machine running Laravel locally.
 
 ## 1. Android emulator -> local backend on the development machine
 
@@ -73,11 +79,25 @@ Important:
 
 ## Current project default
 
-`app/build.gradle.kts` currently defaults back to emulator development:
+`app/build.gradle.kts` currently defaults to the hosted backend:
 
 ```kotlin
-buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/api/\"")
+buildConfigField("String", "API_BASE_URL", "\"https://bcuszlr92817.zafo-forum.sk/api/\"")
 ```
 
-If you switch this value for a physical-device test, revert it afterward unless the physical-device path becomes your main development flow.
+Hosted integration notes:
+
+- keep Android request/response parsing unchanged; the API contract remains the same
+- OTP delivery is currently routed through the temporary hosted Vonage-trial integration mode documented in `docs/ADRs/5_hosted_backend_integration_testing.md`
+- Android should not branch on that temporary OTP routing detail
+
+## Temporary switch-back to local development
+
+If you need to test against a local Laravel server, temporarily replace the hosted `API_BASE_URL` in `app/build.gradle.kts`, rebuild the app, and use one of these values:
+
+- emulator -> `http://10.0.2.2:8000/api/`
+- physical phone on LAN -> `http://<HOST_LAN_IP>:8000/api/`
+- physical phone with `adb reverse` -> `http://127.0.0.1:8000/api/`
+
+After local testing, switch the value back to the hosted URL so the main Android flow stays aligned with the current project phase.
 
