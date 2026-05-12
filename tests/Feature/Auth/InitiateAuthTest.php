@@ -58,6 +58,8 @@ class InitiateAuthTest extends TestCase
             ->assertJsonPath('code', 'auth.sms_initiated')
             ->assertJsonPath('data.masked_phone_number', '+421***456');
 
+        $this->assertStringContainsString('"meta":{}', $response->getContent());
+
         $this->assertCount(1, $this->fakeSmsSender->messages);
 
         $plainTextOtp = $this->fakeSmsSender->messages[0]['otp'];
@@ -102,6 +104,8 @@ class InitiateAuthTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('code', 'auth.sms_initiated');
 
+        $this->assertStringContainsString('"meta":{}', $firstResponse->getContent());
+
         $firstOtp = $this->fakeSmsSender->messages[0]['otp'];
         $firstChallengeId = $firstResponse->json('data.challenge_id');
 
@@ -115,6 +119,8 @@ class InitiateAuthTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('success', true)
             ->assertJsonPath('code', 'auth.sms_initiated');
+
+        $this->assertStringContainsString('"meta":{}', $secondResponse->getContent());
 
         $secondOtp = $this->fakeSmsSender->messages[1]['otp'];
         $secondChallengeId = $secondResponse->json('data.challenge_id');

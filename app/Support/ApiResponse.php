@@ -12,7 +12,7 @@ class ApiResponse
             'success' => true,
             'code' => $code,
             'data' => $data,
-            'meta' => $meta,
+            'meta' => self::normalizeMeta($meta),
         ], $status);
     }
 
@@ -23,7 +23,12 @@ class ApiResponse
             'code' => $code,
             'message' => $message,
             'errors' => $errors,
-            'meta' => $meta,
+            'meta' => self::normalizeMeta($meta),
         ], $status);
+    }
+
+    private static function normalizeMeta(array $meta): object
+    {
+        return (object) $meta;
     }
 }

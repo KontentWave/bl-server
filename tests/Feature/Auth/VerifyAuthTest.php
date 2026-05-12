@@ -65,6 +65,8 @@ class VerifyAuthTest extends TestCase
             ->assertJsonPath('data.challenge_id', $challenge->challenge_id)
             ->assertJsonPath('data.masked_phone_number', '+421***456');
 
+        $this->assertStringContainsString('"meta":{}', $response->getContent());
+
         $this->assertDatabaseHas('device_bindings', [
             'phone_number' => '+421900123456',
         ]);
