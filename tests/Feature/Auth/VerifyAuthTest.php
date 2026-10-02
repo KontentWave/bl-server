@@ -231,6 +231,38 @@ class VerifyAuthTest extends TestCase
         $this->assertDatabaseCount('otp_challenges', 0);
     }
 
+    public function test_challenge_attempt_limit_cannot_be_bypassed_with_a_valid_otp_or_another_ip(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 10, 2, 12, 0, 0, 'UTC'));
+        config()->set('services.escort_portal.driver', 'fixture');
+        config()->set('services.escort_portal.fixture_directory', 'tests/Fixtures/escort_ads/active');
+        config()->set('security.otp_verification_attempts', 5);
+        [$challenge, $otp] = app(OtpChallengeService::class)->issue('https://portal.example.test/escort/miriam');
+        [$privateKey, $publicKey] = $this->generateKeyPair();
+        $payload = [
+            'challenge_id' => $challenge->challenge_id,
+            'otp' => $otp === '000000' ? '111111' : '000000',
+            'public_key' => $publicKey,
+            'signature' => $this->signPayload($privateKey, $challenge->challenge_id, $publicKey),
+        ];
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson('/api/auth/verify', $payload)
+                ->assertUnprocessable()->assertJsonPath('code', 'otp_invalid_or_expired');
+        }
+
+        $payload['otp'] = $otp;
+        $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.4'])
+            ->postJson('/api/auth/verify', $payload)
+            ->assertStatus(429)
+            ->assertJsonPath('code', 'rate_limited')
+            ->assertJsonPath('meta.retry_after', 900)
+            ->assertHeader('Retry-After', '900');
+
+        $this->assertDatabaseCount('device_bindings', 0);
+        $this->assertDatabaseHas('otp_challenges', ['challenge_id' => $challenge->challenge_id]);
+    }
+
     private function generateKeyPair(): array
     {
         $privateKey = openssl_pkey_new([

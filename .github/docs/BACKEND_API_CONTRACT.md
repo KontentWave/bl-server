@@ -45,6 +45,58 @@ All API responses use a stable envelope.
 
 Android should treat `errors` as authoritative for field-specific failures.
 
+## Beta URL and Abuse Controls
+
+These controls require an approved deployment before they apply to the hosted beta. They do not establish overall beta readiness or prove SMS delivery.
+
+### Ad URL and parsing policy
+
+- Only HTTPS URLs on `amaterky.sk`, `www.amaterky.sk`, `eurogirlsescort.com` and `www.eurogirlsescort.com` are accepted. Arbitrary subdomains, URL credentials and non-443 ports are rejected with `invalid_ad_url`.
+- The HTTP fetcher rejects non-public IPv4/IPv6 DNS answers and pins the connection to a validated address, including proxy tunnels. TLS hostname/certificate verification remains enabled. DNS failure fails closed with `escort_portal_unavailable`.
+- Redirects are not followed, even to another supported host. Submit the canonical HTTPS ad URL; live portal/proxy compatibility still needs approved verification.
+- The synthetic `portal.example.test` host is accepted only by initiation in `fixture` mode in `local` or `testing`, never by the HTTP fetcher.
+- Supported portals use their dedicated phone extractors without a generic visible-number fallback. Host case does not bypass disabled-ad checks.
+- `ad_url` is limited to 2048 characters. Public keys are limited to 8192 characters and signatures to 4096 characters on all signed endpoints. Oversized fields return `validation_failed` with HTTP 422 before cryptographic parsing.
+
+### Default limits
+
+Values are configurable through `.env.example` and `config/security.php`, and bounded to at least one. IP limits use the server-resolved address, not an arbitrary forwarded header.
+
+| Scope                                        | Default                                                                |
+| -------------------------------------------- | ---------------------------------------------------------------------- |
+| All API requests per IP                      | 60 per minute                                                          |
+| Initiation requests per IP                   | 3 per minute and 10 per hour                                           |
+| Verification requests per IP                 | 10 per minute                                                          |
+| Verification requests per existing challenge | 5 until challenge expiry, including invalid OTP/key/signature attempts |
+| SMS resend per recipient                     | 60-second cooldown                                                     |
+| SMS attempts per recipient                   | 3 per hour and 5 per day                                               |
+| SMS attempts across the application          | 20 per hour and 100 per day                                            |
+
+Windows have fixed TTLs from their first reservation/request, not calendar-day or sliding-window boundaries. SMS limits count dispatch reservations, not currency or confirmed deliveries. Reservations are serialized through a shared cache lock before challenge replacement and sending. They are not refunded after provider failures; partially reserved requests can consume capacity conservatively. API middleware limits scraper load even when an ad yields no phone. Per-recipient limits cover different ad URLs/IPs resolving to the same phone, and global limits cover different recipients.
+
+### HTTP 429
+
+All API and OTP/SMS limit failures use `rate_limited`, a `Retry-After` header in seconds, and this envelope:
+
+```json
+{
+    "success": false,
+    "code": "rate_limited",
+    "message": "Too many requests. Please try again later.",
+    "errors": [],
+    "meta": { "retryable": true, "retry_after": 60 }
+}
+```
+
+The current empty-error serialization is `[]`, not the object used by some older examples; the pre-existing global envelope mismatch is not corrected in this slice. Android compatibility with the actual envelope and the new limit states must be checked before rollout. Display the retry delay and avoid automatic SMS resend, especially after an ambiguous transport failure. A blocked resend does not return a new challenge or replace the existing one. After a challenge exhausts its attempt budget, request a new challenge when resend limits permit rather than repeatedly submitting the same OTP. Cache-lock contention also returns 429 with a short retry delay.
+
+### Operator requirements
+
+- Outside `local`/`testing`, `CACHE_LIMITER` must select a shared `database` or `redis` store with working locks; other drivers fail closed with HTTP 503 and `abuse_protection_unavailable`. Provision the existing cache/lock tables for database storage. All workers must share the store, key prefix and application key. Redis must preserve counters for their TTL; eviction, cache flushing or isolated per-worker stores invalidate the budget guarantees.
+- The portal fetcher requires PHP cURL supporting `CURLOPT_CONNECT_TO` (libcurl 7.49+). Verify the actual hosted PHP transport, DNS resolution, HTTPS proxy tunnel and portal URLs before release. Missing pinning support fails closed; do not disable TLS verification to make a test pass.
+- Configure trusted reverse proxies narrowly and enforce web-server request/body limits. Set production/debug/scraper/recipient-override flags as required by the approved beta deployment; this code does not change hosted settings.
+- SQLite/mocked tests and shared-store unit checks do not certify MariaDB/Redis multi-worker behavior. Atomic OTP consumption/device binding, reporting concurrency, dependency advisories and the other beta gates remain separate work.
+
 ## POST /api/auth/initiate
 
 Starts the SMS verification flow from an escort ad URL.

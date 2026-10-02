@@ -5,6 +5,7 @@ use App\Support\ApiResponse;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -21,6 +22,24 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(function (ThrottleRequestsException $exception, Request $request): ?JsonResponse {
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            $headers = $exception->getHeaders();
+
+            return ApiResponse::error(
+                code: 'rate_limited',
+                message: 'Too many requests. Please try again later.',
+                status: 429,
+                meta: [
+                    'retryable' => true,
+                    'retry_after' => max(1, (int) ($headers['Retry-After'] ?? 1)),
+                ],
+            )->withHeaders($headers);
+        });
+
         $exceptions->render(function (ApiDomainException $exception, Request $request): ?JsonResponse {
             if (! $request->is('api/*')) {
                 return null;

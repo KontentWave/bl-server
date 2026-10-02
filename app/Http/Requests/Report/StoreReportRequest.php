@@ -17,8 +17,8 @@ class StoreReportRequest extends FormRequest
         return [
             'client_phone_number' => ['required', 'string', 'max:32'],
             'feature' => ['required', 'string', Rule::in(array_keys(config('reporting.features', [])))],
-            'public_key' => ['required', 'string'],
-            'signature' => ['required', 'string'],
+            'public_key' => ['required', 'string', 'max:8192'],
+            'signature' => ['required', 'string', 'max:4096'],
         ];
     }
 }

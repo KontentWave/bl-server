@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Contracts\EscortPortalClient;
-use App\Exceptions\InvalidAdUrlException;
 use App\Exceptions\EscortPortalTimeoutException;
 use App\Exceptions\EscortPortalUnavailableException;
 use App\Scraper\Proxy\RotatingProxyConfig;
@@ -16,20 +15,31 @@ class HttpEscortPortalClient implements EscortPortalClient
 {
     public function __construct(
         private readonly RotatingProxyConfig $rotatingProxyConfig,
-    ) {
-    }
+        private readonly EscortAdUrlPolicy $adUrlPolicy,
+    ) {}
 
     public function fetchAdHtml(string $adUrl): ?string
     {
-        if (! filter_var($adUrl, FILTER_VALIDATE_URL)) {
-            throw InvalidAdUrlException::create();
+        $host = $this->adUrlPolicy->validate($adUrl);
+
+        if (! defined('CURLOPT_CONNECT_TO')) {
+            throw EscortPortalUnavailableException::forPhoneNumber($host);
         }
+
+        $address = $this->adUrlPolicy->resolvePublicAddress($host);
+        $connectHost = str_contains($address, ':') ? '['.$address.']' : $address;
 
         $timeout = (int) config('services.escort_portal.timeout', 10);
         $userAgent = (string) config('services.escort_portal.user_agent', 'BlacklistBackend/1.0');
         $proxy = config('services.escort_portal.proxy');
 
         $request = Http::withHeaders(['Accept' => 'text/html,application/xhtml+xml'])
+            ->withoutRedirecting()
+            ->withOptions([
+                'proxy' => '',
+                'verify' => true,
+                'curl' => [CURLOPT_CONNECT_TO => [$host.':443:'.$connectHost.':443']],
+            ])
             ->timeout($timeout)
             ->withUserAgent($userAgent);
 

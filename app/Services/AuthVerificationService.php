@@ -14,18 +14,11 @@ class AuthVerificationService
 {
     public function __construct(
         private readonly DeviceSignatureService $deviceSignatureService,
-    ) {
-    }
+        private readonly OtpAbuseProtection $abuseProtection,
+    ) {}
 
     public function verify(string $challengeId, string $otp, string $publicKey, string $signature): DeviceBinding
     {
-        $normalizedPublicKey = $this->deviceSignatureService->normalizePublicKey($publicKey);
-        $signatureDiagnostics = $this->deviceSignatureService->verificationDiagnostics(
-            $challengeId,
-            $normalizedPublicKey,
-            $signature,
-        );
-
         Log::info('auth.verify.attempted', [
             'challenge_id' => $challengeId,
         ]);
@@ -38,6 +31,7 @@ class AuthVerificationService
             throw ChallengeNotFoundException::create();
         }
 
+        $this->abuseProtection->recordVerificationAttempt($otpChallenge);
         $redactedPhoneNumber = PhoneNumberRedactor::redact($otpChallenge->phone_number);
 
         if (! $otpChallenge->hasValidOtp($otp)) {
@@ -48,6 +42,13 @@ class AuthVerificationService
 
             throw OtpInvalidOrExpiredException::create();
         }
+
+        $normalizedPublicKey = $this->deviceSignatureService->normalizePublicKey($publicKey);
+        $signatureDiagnostics = $this->deviceSignatureService->verificationDiagnostics(
+            $challengeId,
+            $normalizedPublicKey,
+            $signature,
+        );
 
         if (! $signatureDiagnostics['verified']) {
             $logContext = [
