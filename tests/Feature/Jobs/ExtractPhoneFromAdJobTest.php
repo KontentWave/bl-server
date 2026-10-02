@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Jobs;
 
+use App\Contracts\EscortPortalClient;
 use App\Exceptions\AdTemporarilyDisabledException;
 use App\Jobs\ExtractPhoneFromAdJob;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class ExtractPhoneFromAdJobTest extends TestCase
@@ -111,5 +113,36 @@ class ExtractPhoneFromAdJobTest extends TestCase
         $this->expectException(AdTemporarilyDisabledException::class);
 
         app()->call([new ExtractPhoneFromAdJob('https://amaterky.sk/32297'), 'handle']);
+    }
+
+    #[DataProvider('supportedUrls')]
+    public function test_supported_portals_do_not_fall_back_to_unrelated_visible_phone_numbers(string $url): void
+    {
+        $client = $this->mock(EscortPortalClient::class);
+        $client->shouldReceive('fetchAdHtml')->once()->with($url)
+            ->andReturn('<html><footer>Contact +421900123456</footer></html>');
+
+        $this->assertNull(app()->call([new ExtractPhoneFromAdJob($url), 'handle']));
+    }
+
+    public static function supportedUrls(): array
+    {
+        return [
+            ['https://amaterky.sk/32116'],
+            ['https://AMATERKY.SK/32116'],
+            ['https://www.eurogirlsescort.com/escort/example/123/'],
+        ];
+    }
+
+    public function test_uppercase_hosts_do_not_bypass_the_disabled_ad_gate(): void
+    {
+        $url = 'https://AMATERKY.SK/32297';
+        $client = $this->mock(EscortPortalClient::class);
+        $client->shouldReceive('fetchAdHtml')->once()->with($url)
+            ->andReturn('<h2 class="alert-heading">Vypnuty zadavatelom</h2><footer>+421900123456</footer>');
+
+        $this->expectException(AdTemporarilyDisabledException::class);
+
+        app()->call([new ExtractPhoneFromAdJob($url), 'handle']);
     }
 }

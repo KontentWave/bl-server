@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Contracts\SmsSender;
-use App\Exceptions\InvalidAdUrlException;
 use App\Exceptions\PhoneExtractionFailedException;
 use App\Jobs\ExtractPhoneFromAdJob;
 use App\Models\OtpChallenge;
@@ -15,14 +14,13 @@ class OtpChallengeService
 {
     public function __construct(
         private readonly SmsSender $smsSender,
-    ) {
-    }
+        private readonly EscortAdUrlPolicy $adUrlPolicy,
+        private readonly OtpAbuseProtection $abuseProtection,
+    ) {}
 
     public function issue(string $adUrl): array
     {
-        if (! $this->isValidAdUrl($adUrl)) {
-            throw InvalidAdUrlException::create();
-        }
+        $this->adUrlPolicy->validate($adUrl, config('services.escort_portal.driver') === 'fixture');
 
         $phoneNumber = app()->call([new ExtractPhoneFromAdJob($adUrl), 'handle']);
 
@@ -30,6 +28,7 @@ class OtpChallengeService
             throw PhoneExtractionFailedException::create();
         }
 
+        $this->abuseProtection->reserveSms($phoneNumber);
         $plainTextOtp = $this->generateOtp();
 
         $otpChallenge = OtpChallenge::query()->updateOrCreate(
@@ -54,16 +53,5 @@ class OtpChallengeService
     private function generateOtp(): string
     {
         return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-    }
-
-    private function isValidAdUrl(string $adUrl): bool
-    {
-        if (! filter_var($adUrl, FILTER_VALIDATE_URL)) {
-            return false;
-        }
-
-        $scheme = parse_url($adUrl, PHP_URL_SCHEME);
-
-        return in_array($scheme, ['http', 'https'], true);
     }
 }

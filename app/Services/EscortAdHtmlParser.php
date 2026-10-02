@@ -11,8 +11,7 @@ class EscortAdHtmlParser
         private readonly EscortPhoneNumberNormalizer $escortPhoneNumberNormalizer,
         private readonly AmaterkySkPhoneExtractor $amaterkySkPhoneExtractor,
         private readonly EuroGirlsEscortPhoneExtractor $euroGirlsEscortPhoneExtractor,
-    ) {
-    }
+    ) {}
 
     public function extractPrimaryPhoneNumber(string $html, ?string $adUrl = null): ?string
     {
@@ -25,21 +24,16 @@ class EscortAdHtmlParser
     public function extractPhoneNumbers(string $html, ?string $adUrl = null): array
     {
         $host = is_string($adUrl) ? parse_url($adUrl, PHP_URL_HOST) : null;
+        $host = is_string($host) ? strtolower($host) : null;
 
         if (is_string($host) && $this->amaterkySkPhoneExtractor->supports($host)) {
             $phoneNumber = $this->amaterkySkPhoneExtractor->extract($html);
 
-            if ($phoneNumber !== null) {
-                return [$phoneNumber];
-            }
+            return $phoneNumber === null ? [] : [$phoneNumber];
         }
 
         if (is_string($host) && $this->euroGirlsEscortPhoneExtractor->supports($host)) {
-            $phoneNumbers = $this->euroGirlsEscortPhoneExtractor->extractAll($html);
-
-            if ($phoneNumbers !== []) {
-                return $phoneNumbers;
-            }
+            return $this->euroGirlsEscortPhoneExtractor->extractAll($html);
         }
 
         $plainText = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');

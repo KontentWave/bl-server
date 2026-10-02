@@ -15,8 +15,8 @@ class CheckBlacklistRequest extends FormRequest
     {
         return [
             'target_hash' => ['required', 'string', 'size:64', 'regex:/^[a-f0-9]{64}$/i'],
-            'public_key' => ['nullable', 'string'],
-            'signature' => ['nullable', 'string'],
+            'public_key' => ['nullable', 'string', 'max:8192'],
+            'signature' => ['nullable', 'string', 'max:4096'],
         ];
     }
 }

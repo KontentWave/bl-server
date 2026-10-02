@@ -14,7 +14,7 @@ class InitiateAuthRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'ad_url' => ['required', 'string'],
+            'ad_url' => ['required', 'string', 'max:2048'],
         ];
     }
 }

@@ -16,8 +16,8 @@ class VerifyAuthRequest extends FormRequest
         return [
             'challenge_id' => ['required', 'string', 'uuid'],
             'otp' => ['required', 'string', 'regex:/^\d{6}$/'],
-            'public_key' => ['required', 'string'],
-            'signature' => ['required', 'string'],
+            'public_key' => ['required', 'string', 'max:8192'],
+            'signature' => ['required', 'string', 'max:4096'],
         ];
     }
 }
