@@ -23,3 +23,8 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+/.github/docs/client-docs/
+/.github/copilot-instructions.md
+/.github/copilot-instructions.md:Zone.Identifier
+/backend-laravel.code-workspace
