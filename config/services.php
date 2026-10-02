@@ -55,6 +55,8 @@ return [
         'smstools' => [
             'api_key' => env('SMSTOOLS_API_KEY'),
             'endpoint' => env('SMSTOOLS_API_ENDPOINT', 'https://api.smstools.sk/3/send_batch'),
+            'connect_timeout' => (int) env('SMSTOOLS_CONNECT_TIMEOUT', 5),
+            'timeout' => (int) env('SMSTOOLS_TIMEOUT', 10),
         ],
     ],
 
