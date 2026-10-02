@@ -5,8 +5,12 @@ namespace Tests\Feature\Auth;
 use App\Contracts\SmsSender;
 use App\Models\OtpChallenge;
 use App\Services\OtpChallengeService;
+use App\Services\SmstoolsSmsSender;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class InitiateAuthTest extends TestCase
@@ -180,5 +184,109 @@ class InitiateAuthTest extends TestCase
             ->assertJsonPath('meta.ad_state', 'temporarily_disabled');
 
         $this->assertCount(0, $this->fakeSmsSender->messages);
+    }
+
+    public function test_smstools_acceptance_returns_the_existing_initiation_envelope(): void
+    {
+        config()->set('services.escort_portal.driver', 'fixture');
+        config()->set('services.escort_portal.fixture_directory', 'tests/Fixtures/escort_ads/active');
+        config()->set('services.escort_portal.development_phone_override', null);
+        config()->set('services.sms.driver', 'smstools');
+        config()->set('services.sms.smstools.api_key', 'test-api-key');
+        config()->set('services.sms.from', 'Blacklist');
+        config()->set('services.sms.smstools.endpoint', 'https://api.smstools.sk/3/send_batch');
+        $this->app->forgetInstance(SmsSender::class);
+        Http::preventStrayRequests();
+        Http::fake(fn () => Http::response([
+            'id' => 'OK',
+            'data' => [
+                'batch_id' => 12345,
+                'recipients' => ['accepted' => [[
+                    'phonenr' => '+421900123456',
+                    'msg_id' => 22345,
+                ]]],
+            ],
+        ], 200));
+
+        $response = $this->postJson('/api/auth/initiate', [
+            'ad_url' => 'https://portal.example.test/escort/miriam',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('code', 'auth.sms_initiated')
+            ->assertJsonPath('data.masked_phone_number', '+421***456')
+            ->assertJsonMissingPath('data.otp');
+
+        $this->assertStringContainsString('"meta":{}', $response->getContent());
+        $this->assertSame(OtpChallenge::query()->firstOrFail()->challenge_id, $response->json('data.challenge_id'));
+        Http::assertSent(fn ($request) => $request['data']['recipients'][0]['phonenr'] === '+421900123456');
+        Http::assertSentCount(1);
+    }
+
+    #[DataProvider('smsFailures')]
+    public function test_smstools_failures_preserve_the_api_envelope_and_challenge_lifecycle(string $failure): void
+    {
+        config()->set('services.escort_portal.driver', 'fixture');
+        config()->set('services.escort_portal.fixture_directory', 'tests/Fixtures/escort_ads/active');
+        config()->set('services.escort_portal.development_phone_override', null);
+
+        [$previousChallenge] = app(OtpChallengeService::class)->issue('https://portal.example.test/escort/miriam');
+
+        config()->set('services.sms.driver', 'smstools');
+        config()->set('services.sms.smstools.api_key', 'test-api-key');
+        config()->set('services.sms.from', 'Blacklist');
+        config()->set('services.sms.smstools.endpoint', 'https://api.smstools.sk/3/send_batch');
+        $this->app->forgetInstance(SmsSender::class);
+        $this->assertInstanceOf(SmstoolsSmsSender::class, app(SmsSender::class));
+
+        Http::preventStrayRequests();
+        $attempts = 0;
+
+        Http::fake(function () use ($failure, &$attempts) {
+            $attempts++;
+
+            if (in_array($failure, ['timeout', 'connection'], true)) {
+                throw new ConnectionException('Sensitive transport failure');
+            }
+
+            return match ($failure) {
+                'rejection' => Http::response(['id' => 'NEDOSTATOK_KREDITU', 'note' => 'Sensitive rejection details'], 200),
+                'malformed' => Http::response('not-json', 200),
+                'partial' => Http::response(['id' => 'OK'], 200),
+            };
+        });
+
+        $response = $this->postJson('/api/auth/initiate', [
+            'ad_url' => 'https://portal.example.test/escort/miriam',
+        ]);
+
+        $response
+            ->assertStatus(503)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('code', 'sms_dispatch_failed')
+            ->assertJsonPath('meta.retryable', true)
+            ->assertJsonMissingPath('data.challenge_id');
+
+        $response->assertJsonPath('errors', []);
+        $this->assertStringNotContainsString('Sensitive', $response->getContent());
+        $this->assertSame(1, $attempts);
+        $this->assertSame(1, OtpChallenge::query()->count());
+        $currentChallenge = OtpChallenge::query()->firstOrFail();
+        $this->assertNotSame($previousChallenge->challenge_id, $currentChallenge->challenge_id);
+        $this->assertSame('+421900123456', $currentChallenge->phone_number);
+        $this->assertTrue($currentChallenge->expires_at->greaterThan(now()));
+    }
+
+    public static function smsFailures(): array
+    {
+        return [
+            'provider rejection' => ['rejection'],
+            'timeout' => ['timeout'],
+            'connection failure' => ['connection'],
+            'malformed response' => ['malformed'],
+            'partial response' => ['partial'],
+        ];
     }
 }

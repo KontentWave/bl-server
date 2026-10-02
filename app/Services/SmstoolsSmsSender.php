@@ -5,16 +5,15 @@ namespace App\Services;
 use App\Contracts\SmsSender;
 use App\Exceptions\SmsDispatchFailedException;
 use App\Support\PhoneNumberRedactor;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Log;
 
 class SmstoolsSmsSender implements SmsSender
 {
     public function __construct(
         private readonly HttpFactory $http,
-    ) {
-    }
+    ) {}
 
     public function sendOtp(string $phoneNumber, string $otp): void
     {
@@ -22,69 +21,86 @@ class SmstoolsSmsSender implements SmsSender
         $endpoint = (string) config('services.sms.smstools.endpoint', 'https://api.smstools.sk/3/send_batch');
         $from = (string) config('services.sms.from', 'Blacklist');
 
-        if ($apiKey === '') {
+        if (trim($apiKey) === '' || trim($from) === '') {
             throw SmsDispatchFailedException::create(
                 message: 'The verification SMS provider is not configured.',
                 context: ['provider' => 'smstools'],
             );
         }
 
-        $response = $this->http
-            ->acceptJson()
-            ->asJson()
-            ->post($endpoint, [
-                'auth' => [
-                    'apikey' => $apiKey,
-                ],
-                'data' => [
-                    'message' => sprintf('Your Blacklist verification code is %s', $otp),
-                    'sender' => [
-                        'text' => $from,
+        try {
+            $response = $this->http
+                ->connectTimeout(max(1, (int) config('services.sms.smstools.connect_timeout', 5)))
+                ->timeout(max(1, (int) config('services.sms.smstools.timeout', 10)))
+                ->acceptJson()
+                ->asJson()
+                ->post($endpoint, [
+                    'auth' => [
+                        'apikey' => $apiKey,
                     ],
-                    'recipients' => [[
-                        'phonenr' => $phoneNumber,
-                    ]],
-                ],
+                    'data' => [
+                        'message' => sprintf('Your Blacklist verification code is %s', $otp),
+                        'sender' => [
+                            'text' => $from,
+                        ],
+                        'recipients' => [[
+                            'phonenr' => $phoneNumber,
+                        ]],
+                    ],
+                ]);
+        } catch (ConnectionException) {
+            throw SmsDispatchFailedException::create(context: [
+                'provider' => 'smstools',
+                'reason' => 'transport_error',
             ]);
+        }
 
         $payload = $response->json();
         $resultId = is_array($payload) ? ($payload['id'] ?? null) : null;
 
         if (! $response->successful() || $resultId !== 'OK') {
-            throw SmsDispatchFailedException::create(context: $this->failureContext(
-                response: $response,
-                phoneNumber: $phoneNumber,
-                resultId: is_scalar($resultId) ? (string) $resultId : null,
-                note: is_array($payload) && isset($payload['note']) && is_scalar($payload['note']) ? (string) $payload['note'] : null,
-            ));
+            throw SmsDispatchFailedException::create(context: [
+                'provider' => 'smstools',
+                'http_status' => $response->status(),
+                'reason' => 'provider_rejected_or_invalid_response',
+            ]);
         }
 
         $data = is_array($payload['data'] ?? null) ? $payload['data'] : [];
         $acceptedRecipients = is_array($data['recipients']['accepted'] ?? null)
             ? $data['recipients']['accepted']
             : [];
-        $firstAcceptedRecipient = is_array($acceptedRecipients[0] ?? null) ? $acceptedRecipients[0] : [];
+        $acceptedRecipient = null;
+
+        foreach ($acceptedRecipients as $recipient) {
+            if (is_array($recipient)
+                && is_string($recipient['phonenr'] ?? null)
+                && ltrim($recipient['phonenr'], '+') === ltrim($phoneNumber, '+')
+                && $this->isValidIdentifier($recipient['msg_id'] ?? null)) {
+                $acceptedRecipient = $recipient;
+                break;
+            }
+        }
+
+        if ($acceptedRecipient === null || ! $this->isValidIdentifier($data['batch_id'] ?? null)) {
+            throw SmsDispatchFailedException::create(context: [
+                'provider' => 'smstools',
+                'http_status' => $response->status(),
+                'reason' => 'recipient_acceptance_unconfirmed',
+            ]);
+        }
 
         Log::info('sms.otp_dispatched', [
             'provider' => 'smstools',
             'phone_number' => PhoneNumberRedactor::redact($phoneNumber),
-            'batch_id' => $data['batch_id'] ?? null,
-            'message_id' => $firstAcceptedRecipient['msg_id'] ?? null,
+            'batch_id' => $data['batch_id'],
+            'message_id' => $acceptedRecipient['msg_id'],
         ]);
     }
 
-    private function failureContext(
-        Response $response,
-        string $phoneNumber,
-        ?string $resultId,
-        ?string $note,
-    ): array {
-        return array_filter([
-            'provider' => 'smstools',
-            'phone_number' => PhoneNumberRedactor::redact($phoneNumber),
-            'http_status' => $response->status(),
-            'provider_code' => $resultId,
-            'provider_note' => $note,
-        ], static fn (mixed $value): bool => $value !== null && $value !== '');
+    private function isValidIdentifier(mixed $identifier): bool
+    {
+        return (is_int($identifier) && $identifier > 0)
+            || (is_string($identifier) && preg_match('/^[1-9][0-9]*$/D', $identifier) === 1);
     }
 }

@@ -5,8 +5,11 @@ namespace Tests\Feature\Auth;
 use App\Contracts\SmsSender;
 use App\Services\DeviceSignatureService;
 use App\Services\OtpChallengeService;
+use App\Services\SmstoolsSmsSender;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class VerifyAuthTest extends TestCase
@@ -166,7 +169,7 @@ class VerifyAuthTest extends TestCase
         Carbon::setTestNow(Carbon::create(2026, 3, 31, 12, 0, 0, 'UTC'));
 
         [$privateKey, $publicKey] = $this->generateKeyPair();
-        $challengeId = (string) \Illuminate\Support\Str::uuid();
+        $challengeId = (string) Str::uuid();
 
         $response = $this->postJson('/api/auth/verify', [
             'challenge_id' => $challengeId,
@@ -182,6 +185,50 @@ class VerifyAuthTest extends TestCase
             ->assertJsonValidationErrors('challenge_id');
 
         $this->assertDatabaseCount('device_bindings', 0);
+    }
+
+    public function test_it_verifies_a_signed_challenge_after_smstools_accepts_the_scraped_recipient(): void
+    {
+        config()->set('services.escort_portal.driver', 'fixture');
+        config()->set('services.escort_portal.fixture_directory', 'tests/Fixtures/escort_ads/active');
+        config()->set('services.escort_portal.development_phone_override', null);
+        config()->set('services.sms.driver', 'smstools');
+        config()->set('services.sms.smstools.api_key', 'test-api-key');
+        config()->set('services.sms.from', 'Blacklist');
+        config()->set('services.sms.smstools.endpoint', 'https://api.smstools.sk/3/send_batch');
+        $this->app->forgetInstance(SmsSender::class);
+        $this->assertInstanceOf(SmstoolsSmsSender::class, app(SmsSender::class));
+
+        Http::preventStrayRequests();
+        Http::fake(fn () => Http::response([
+            'id' => 'OK',
+            'data' => [
+                'batch_id' => 12345,
+                'recipients' => ['accepted' => [[
+                    'phonenr' => '+421900123456',
+                    'msg_id' => 22345,
+                ]]],
+            ],
+        ], 200));
+
+        [$challenge, $otp] = app(OtpChallengeService::class)->issue('https://portal.example.test/escort/miriam');
+        [$privateKey, $publicKey] = $this->generateKeyPair();
+
+        $this->postJson('/api/auth/verify', [
+            'challenge_id' => $challenge->challenge_id,
+            'otp' => $otp,
+            'public_key' => $publicKey,
+            'signature' => $this->signPayload($privateKey, $challenge->challenge_id, $publicKey),
+        ])
+            ->assertOk()
+            ->assertJsonPath('code', 'auth.verified')
+            ->assertJsonPath('data.challenge_id', $challenge->challenge_id)
+            ->assertJsonPath('data.masked_phone_number', '+421***456');
+
+        Http::assertSent(fn ($request) => $request['data']['recipients'][0]['phonenr'] === '+421900123456');
+        Http::assertSentCount(1);
+        $this->assertDatabaseCount('device_bindings', 1);
+        $this->assertDatabaseCount('otp_challenges', 0);
     }
 
     private function generateKeyPair(): array
