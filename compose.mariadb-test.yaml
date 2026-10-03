@@ -1,0 +1,28 @@
+services:
+  mariadb:
+    image: mariadb:11.4
+    command:
+      - --transaction-isolation=${BETA_TEST_ISOLATION:-REPEATABLE-READ}
+    environment:
+      MARIADB_DATABASE: beta_otp_test
+      MARIADB_USER: beta_otp_test
+      MARIADB_PASSWORD: ${BETA_TEST_DB_PASSWORD:?Use scripts/test-mariadb.php}
+      MARIADB_ROOT_PASSWORD: ${BETA_TEST_DB_PASSWORD:?Use scripts/test-mariadb.php}
+      MARIADB_ROOT_HOST: "%"
+    ports:
+      - "127.0.0.1::3306"
+    tmpfs:
+      - /var/lib/mysql
+    labels:
+      bl.isolated-otp-tests: "1"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    networks:
+      - isolated
+
+networks:
+  isolated:
+    driver: bridge

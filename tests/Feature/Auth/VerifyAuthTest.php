@@ -5,11 +5,14 @@ namespace Tests\Feature\Auth;
 use App\Contracts\SmsSender;
 use App\Services\AuthVerificationService;
 use App\Services\DeviceSignatureService;
+use App\Services\OtpAbuseProtection;
 use App\Services\OtpChallengeService;
 use App\Services\SmstoolsSmsSender;
+use Illuminate\Cache\RateLimiter;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -320,6 +323,21 @@ class VerifyAuthTest extends TestCase
     }
 
     public function test_challenge_attempt_limit_cannot_be_bypassed_with_a_valid_otp_or_another_ip(): void
+    {
+        $this->assertChallengeAttemptLimit();
+    }
+
+    public function test_database_cache_preserves_failed_verification_attempts(): void
+    {
+        config()->set('cache.limiter', 'database');
+        config()->set('cache.stores.database.connection', 'sqlite');
+        config()->set('cache.stores.database.lock_connection', 'sqlite');
+        $this->app->instance(OtpAbuseProtection::class, new OtpAbuseProtection(new RateLimiter(Cache::store('database'))));
+
+        $this->assertChallengeAttemptLimit();
+    }
+
+    private function assertChallengeAttemptLimit(): void
     {
         Carbon::setTestNow(Carbon::create(2026, 10, 2, 12, 0, 0, 'UTC'));
         config()->set('services.escort_portal.driver', 'fixture');

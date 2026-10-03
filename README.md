@@ -29,6 +29,28 @@ In addition, [Laracasts](https://laracasts.com) contains thousands of video tuto
 
 You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
 
+## Isolated backend tests
+
+The normal suite uses in-memory SQLite, regardless of inherited database settings, and rejects cached Laravel configuration:
+
+```sh
+DB_CONNECTION=sqlite DB_DATABASE=:memory: SMS_DRIVER=log \
+SMS_LOG_OTP_IN_NON_PRODUCTION=false vendor/bin/phpunit --no-progress
+```
+
+For MariaDB 11.4 OTP concurrency checks, use a local Docker daemon, Docker Compose and PHP with `pdo_mysql`:
+
+```sh
+php scripts/test-mariadb.php
+php scripts/test-mariadb.php --filter test_parallel_verifications_authorize_exactly_one_key
+```
+
+The [runner](scripts/test-mariadb.php) provisions a unique [test container](compose.mariadb-test.yaml) for each of `REPEATABLE-READ` and `READ-COMMITTED`. It uses a random loopback-only port, runtime-generated test credentials and temporary database storage, then removes its own container/network in a `finally` block. No existing SQLite server, local database, hosted service or persistent volume is changed.
+
+The separate [MariaDB bootstrap](tests/bootstrap-mariadb.php) verifies container labels, port binding and temporary storage before allowing migrations. It forces a synthetic database/user, fixture portal extraction, log-only SMS with OTP logging disabled, and database-backed cache/locks. Tests reject stray HTTP requests. Existing configuration caches cause an explicit refusal, not an automatic cache deletion.
+
+[OTP tests](tests/Database/OtpConcurrencyTest.php) boot independent PHP workers and require observed InnoDB lock waits for overlapping verification and both resend/verification orders. They also check binding/consumption rollback and persistent attempt accounting. Payloads travel over private process pipes, not command-line arguments or temporary files. These are local service/database tests, not hosted, live-SMS or Android end-to-end certification. Report concurrency (CB-07) is outside this suite.
+
 ## Agentic Development
 
 Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:

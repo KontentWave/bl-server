@@ -24,22 +24,32 @@ class AuthVerificationService
             'challenge_id' => $challengeId,
         ]);
 
+        $otpChallenge = OtpChallenge::query()->where('challenge_id', $challengeId)->first();
+
+        if (! $otpChallenge) {
+            throw ChallengeNotFoundException::create();
+        }
+
+        // Database-backed attempt budgets must survive a rejected or rolled-back verification.
+        $this->abuseProtection->recordVerificationAttempt($otpChallenge);
+        $phoneNumber = $otpChallenge->phone_number;
+
         [$deviceBinding, $redactedPhoneNumber] = DB::transaction(function () use (
+            $phoneNumber,
             $challengeId,
             $otp,
             $publicKey,
             $signature,
         ): array {
             $otpChallenge = OtpChallenge::query()
-                ->where('challenge_id', $challengeId)
+                ->where('phone_number', $phoneNumber)
                 ->lockForUpdate()
                 ->first();
 
-            if (! $otpChallenge) {
+            if (! $otpChallenge || $otpChallenge->challenge_id !== $challengeId) {
                 throw ChallengeNotFoundException::create();
             }
 
-            $this->abuseProtection->recordVerificationAttempt($otpChallenge);
             $redactedPhoneNumber = PhoneNumberRedactor::redact($otpChallenge->phone_number);
 
             if (! $otpChallenge->hasValidOtp($otp)) {
@@ -84,7 +94,7 @@ class AuthVerificationService
             $otpChallenge->delete();
 
             return [$deviceBinding, $redactedPhoneNumber];
-        });
+        }, 3);
 
         Log::info('auth.verify.bound', [
             'challenge_id' => $challengeId,

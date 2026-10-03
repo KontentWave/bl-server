@@ -51,7 +51,7 @@ class OtpChallengeService
             }
 
             return OtpChallenge::query()->create($attributes + ['phone_number' => $phoneNumber]);
-        });
+        }, 3);
 
         $this->smsSender->sendOtp($phoneNumber, $plainTextOtp);
 
