@@ -6,6 +6,7 @@ use App\Contracts\SmsSender;
 use App\Exceptions\PhoneExtractionFailedException;
 use App\Jobs\ExtractPhoneFromAdJob;
 use App\Models\OtpChallenge;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -31,15 +32,26 @@ class OtpChallengeService
         $this->abuseProtection->reserveSms($phoneNumber);
         $plainTextOtp = $this->generateOtp();
 
-        $otpChallenge = OtpChallenge::query()->updateOrCreate(
-            ['phone_number' => $phoneNumber],
-            [
+        $otpChallenge = DB::transaction(function () use ($phoneNumber, $adUrl, $plainTextOtp): OtpChallenge {
+            $attributes = [
                 'challenge_id' => (string) Str::uuid(),
                 'ad_url' => $adUrl,
                 'otp_hash' => Hash::make($plainTextOtp),
                 'expires_at' => now()->addMinutes(15),
-            ],
-        );
+            ];
+            $otpChallenge = OtpChallenge::query()
+                ->where('phone_number', $phoneNumber)
+                ->lockForUpdate()
+                ->first();
+
+            if ($otpChallenge) {
+                $otpChallenge->update($attributes);
+
+                return $otpChallenge;
+            }
+
+            return OtpChallenge::query()->create($attributes + ['phone_number' => $phoneNumber]);
+        });
 
         $this->smsSender->sendOtp($phoneNumber, $plainTextOtp);
 
