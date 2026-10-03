@@ -8,6 +8,7 @@ use App\Exceptions\SignatureInvalidException;
 use App\Models\DeviceBinding;
 use App\Models\OtpChallenge;
 use App\Support\PhoneNumberRedactor;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class AuthVerificationService
@@ -23,57 +24,67 @@ class AuthVerificationService
             'challenge_id' => $challengeId,
         ]);
 
-        $otpChallenge = OtpChallenge::query()
-            ->where('challenge_id', $challengeId)
-            ->first();
-
-        if (! $otpChallenge) {
-            throw ChallengeNotFoundException::create();
-        }
-
-        $this->abuseProtection->recordVerificationAttempt($otpChallenge);
-        $redactedPhoneNumber = PhoneNumberRedactor::redact($otpChallenge->phone_number);
-
-        if (! $otpChallenge->hasValidOtp($otp)) {
-            Log::warning('auth.verify.rejected.invalid_otp', [
-                'challenge_id' => $challengeId,
-                'phone_number' => $redactedPhoneNumber,
-            ]);
-
-            throw OtpInvalidOrExpiredException::create();
-        }
-
-        $normalizedPublicKey = $this->deviceSignatureService->normalizePublicKey($publicKey);
-        $signatureDiagnostics = $this->deviceSignatureService->verificationDiagnostics(
+        [$deviceBinding, $redactedPhoneNumber] = DB::transaction(function () use (
             $challengeId,
-            $normalizedPublicKey,
+            $otp,
+            $publicKey,
             $signature,
-        );
+        ): array {
+            $otpChallenge = OtpChallenge::query()
+                ->where('challenge_id', $challengeId)
+                ->lockForUpdate()
+                ->first();
 
-        if (! $signatureDiagnostics['verified']) {
-            $logContext = [
-                'challenge_id' => $challengeId,
-                'phone_number' => $redactedPhoneNumber,
-            ];
-
-            if (! app()->environment('production')) {
-                $logContext = array_merge($logContext, $signatureDiagnostics);
+            if (! $otpChallenge) {
+                throw ChallengeNotFoundException::create();
             }
 
-            Log::warning('auth.verify.rejected.invalid_signature', $logContext);
+            $this->abuseProtection->recordVerificationAttempt($otpChallenge);
+            $redactedPhoneNumber = PhoneNumberRedactor::redact($otpChallenge->phone_number);
 
-            throw SignatureInvalidException::create();
-        }
+            if (! $otpChallenge->hasValidOtp($otp)) {
+                Log::warning('auth.verify.rejected.invalid_otp', [
+                    'challenge_id' => $challengeId,
+                    'phone_number' => $redactedPhoneNumber,
+                ]);
 
-        $deviceBinding = DeviceBinding::query()->updateOrCreate(
-            ['phone_number' => $otpChallenge->phone_number],
-            [
-                'public_key' => $normalizedPublicKey,
-                'verified_at' => now(),
-            ],
-        );
+                throw OtpInvalidOrExpiredException::create();
+            }
 
-        $otpChallenge->delete();
+            $normalizedPublicKey = $this->deviceSignatureService->normalizePublicKey($publicKey);
+            $signatureDiagnostics = $this->deviceSignatureService->verificationDiagnostics(
+                $challengeId,
+                $normalizedPublicKey,
+                $signature,
+            );
+
+            if (! $signatureDiagnostics['verified']) {
+                $logContext = [
+                    'challenge_id' => $challengeId,
+                    'phone_number' => $redactedPhoneNumber,
+                ];
+
+                if (! app()->environment('production')) {
+                    $logContext = array_merge($logContext, $signatureDiagnostics);
+                }
+
+                Log::warning('auth.verify.rejected.invalid_signature', $logContext);
+
+                throw SignatureInvalidException::create();
+            }
+
+            $deviceBinding = DeviceBinding::query()->updateOrCreate(
+                ['phone_number' => $otpChallenge->phone_number],
+                [
+                    'public_key' => $normalizedPublicKey,
+                    'verified_at' => now(),
+                ],
+            );
+
+            $otpChallenge->delete();
+
+            return [$deviceBinding, $redactedPhoneNumber];
+        });
 
         Log::info('auth.verify.bound', [
             'challenge_id' => $challengeId,

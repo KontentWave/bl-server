@@ -3,11 +3,14 @@
 namespace Tests\Feature\Auth;
 
 use App\Contracts\SmsSender;
+use App\Services\AuthVerificationService;
 use App\Services\DeviceSignatureService;
 use App\Services\OtpChallengeService;
 use App\Services\SmstoolsSmsSender;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -185,6 +188,91 @@ class VerifyAuthTest extends TestCase
             ->assertJsonValidationErrors('challenge_id');
 
         $this->assertDatabaseCount('device_bindings', 0);
+    }
+
+    public function test_it_rolls_back_the_binding_when_challenge_consumption_fails(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 3, 31, 12, 0, 0, 'UTC'));
+        config()->set('services.escort_portal.driver', 'fixture');
+        config()->set('services.escort_portal.fixture_directory', 'tests/Fixtures/escort_ads/active');
+
+        [$challenge, $otp] = app(OtpChallengeService::class)->issue('https://portal.example.test/escort/miriam');
+        [$privateKey, $publicKey] = $this->generateKeyPair();
+        DB::statement('CREATE TRIGGER fail_otp_challenge_delete BEFORE DELETE ON otp_challenges BEGIN SELECT RAISE(ABORT, "simulated persistence failure"); END;');
+
+        try {
+            app(AuthVerificationService::class)->verify(
+                $challenge->challenge_id,
+                $otp,
+                $publicKey,
+                $this->signPayload($privateKey, $challenge->challenge_id, $publicKey),
+            );
+            $this->fail('Expected challenge consumption to fail.');
+        } catch (QueryException $exception) {
+            $this->assertStringContainsString('simulated persistence failure', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('device_bindings', 0);
+        $this->assertDatabaseHas('otp_challenges', ['challenge_id' => $challenge->challenge_id]);
+    }
+
+    public function test_a_resend_replaces_the_challenge_without_consuming_the_new_challenge(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 3, 31, 12, 0, 0, 'UTC'));
+        config()->set('services.escort_portal.driver', 'fixture');
+        config()->set('services.escort_portal.fixture_directory', 'tests/Fixtures/escort_ads/active');
+
+        [$previousChallenge] = app(OtpChallengeService::class)->issue('https://portal.example.test/escort/miriam');
+        Carbon::setTestNow(now()->addMinutes(2));
+        [$currentChallenge, $otp] = app(OtpChallengeService::class)->issue('https://portal.example.test/escort/miriam');
+        [$privateKey, $publicKey] = $this->generateKeyPair();
+
+        $this->assertNotSame($previousChallenge->challenge_id, $currentChallenge->challenge_id);
+
+        $this->postJson('/api/auth/verify', [
+            'challenge_id' => $previousChallenge->challenge_id,
+            'otp' => $otp,
+            'public_key' => $publicKey,
+            'signature' => $this->signPayload($privateKey, $previousChallenge->challenge_id, $publicKey),
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('code', 'challenge_not_found');
+
+        $this->assertDatabaseCount('device_bindings', 0);
+        $this->assertDatabaseHas('otp_challenges', ['challenge_id' => $currentChallenge->challenge_id]);
+    }
+
+    public function test_a_successfully_consumed_challenge_cannot_rebind_to_a_different_key(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 3, 31, 12, 0, 0, 'UTC'));
+        config()->set('services.escort_portal.driver', 'fixture');
+        config()->set('services.escort_portal.fixture_directory', 'tests/Fixtures/escort_ads/active');
+
+        [$challenge, $otp] = app(OtpChallengeService::class)->issue('https://portal.example.test/escort/miriam');
+        [$firstPrivateKey, $firstPublicKey] = $this->generateKeyPair();
+        [$secondPrivateKey, $secondPublicKey] = $this->generateKeyPair();
+
+        $this->postJson('/api/auth/verify', [
+            'challenge_id' => $challenge->challenge_id,
+            'otp' => $otp,
+            'public_key' => $firstPublicKey,
+            'signature' => $this->signPayload($firstPrivateKey, $challenge->challenge_id, $firstPublicKey),
+        ])->assertOk()->assertJsonPath('code', 'auth.verified');
+
+        $this->postJson('/api/auth/verify', [
+            'challenge_id' => $challenge->challenge_id,
+            'otp' => $otp,
+            'public_key' => $secondPublicKey,
+            'signature' => $this->signPayload($secondPrivateKey, $challenge->challenge_id, $secondPublicKey),
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('code', 'challenge_not_found');
+
+        $this->assertDatabaseCount('device_bindings', 1);
+        $this->assertDatabaseHas('device_bindings', [
+            'phone_number' => '+421900123456',
+            'public_key' => app(DeviceSignatureService::class)->normalizePublicKey($firstPublicKey),
+        ]);
     }
 
     public function test_it_verifies_a_signed_challenge_after_smstools_accepts_the_scraped_recipient(): void
