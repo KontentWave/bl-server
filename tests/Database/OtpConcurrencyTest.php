@@ -16,11 +16,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Tests\Support\AssertsMariaDbLockWait;
 use Tests\Support\MariaDbWorker;
 use Tests\TestCase;
 
 class OtpConcurrencyTest extends TestCase
 {
+    use AssertsMariaDbLockWait;
+
     private static int $clock = 0;
 
     private array $workers = [];
@@ -262,35 +265,5 @@ class OtpConcurrencyTest extends TestCase
         $this->assertSame('finished', $result['event']);
 
         return $result;
-    }
-
-    private function assertLockWait(int $connectionId, MariaDbWorker $worker): void
-    {
-        $deadline = microtime(true) + 10;
-
-        do {
-            if (! $worker->isRunning()) {
-                $this->fail('Worker completed before entering a lock wait: '.json_encode($worker->read()));
-            }
-
-            $waiting = DB::connection('lock_observer')->selectOne(
-                'SELECT COUNT(*) AS waiting FROM information_schema.INNODB_LOCK_WAITS w JOIN information_schema.INNODB_TRX t ON t.trx_id = w.requesting_trx_id WHERE t.trx_mysql_thread_id = ?',
-                [$connectionId],
-            )->waiting;
-
-            if ((int) $waiting > 0) {
-                $this->addToAssertionCount(1);
-
-                return;
-            }
-
-            // Allow InnoDB's information-schema snapshot to refresh between observations.
-            usleep(250000);
-        } while (microtime(true) < $deadline);
-
-        $transactions = DB::connection('lock_observer')->select('SELECT trx_mysql_thread_id, trx_state FROM information_schema.INNODB_TRX');
-        $connections = DB::connection('lock_observer')->select("SELECT ID, COMMAND, STATE, REGEXP_SUBSTR(INFO, 'from `?[a-z_]+`?') AS query_table FROM information_schema.PROCESSLIST WHERE USER = 'beta_otp_test'");
-        $rowWaits = DB::connection('lock_observer')->select("SHOW GLOBAL STATUS LIKE 'Innodb_row_lock_current_waits'");
-        $this->fail('Expected a genuine overlapping InnoDB row-lock wait for connection '.$connectionId.'. Observed transactions: '.json_encode($transactions).'. Connection states: '.json_encode($connections).'. Row waits: '.json_encode($rowWaits));
     }
 }

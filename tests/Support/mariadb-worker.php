@@ -4,8 +4,10 @@ use App\Exceptions\ApiDomainException;
 use App\Services\AuthVerificationService;
 use App\Services\OtpChallengeService;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -27,12 +29,19 @@ try {
     $request = json_decode($input, true, flags: JSON_THROW_ON_ERROR);
     Carbon::setTestNow(Carbon::parse($request['now']));
     config()->set('security.resend_cooldown_seconds', 1);
+    if ($request['operation'] === 'report') {
+        config()->set('security.api_per_minute', 10000);
+    }
     $connectionId = (int) DB::connection()->getPdo()->query('SELECT CONNECTION_ID()')->fetchColumn();
 
-    if ($request['pause_after_lock']) {
+    if ($request['pause_after_lock'] || $request['pause_query'] !== null) {
         $paused = false;
-        DB::listen(function ($query) use (&$paused): void {
-            if (! $paused && str_contains($query->sql, 'otp_challenges') && str_contains($query->sql, 'for update')) {
+        DB::listen(function ($query) use (&$paused, $request): void {
+            $matches = $request['pause_query'] !== null
+                ? str_contains($query->sql, $request['pause_query'])
+                : str_contains($query->sql, 'otp_challenges') && str_contains($query->sql, 'for update');
+
+            if (! $paused && $matches) {
                 $paused = true;
                 echo json_encode([
                     'event' => 'locked',
@@ -62,6 +71,21 @@ try {
                 [$challenge] = app(OtpChallengeService::class)->issue('https://portal.example.test/escort/miriam');
 
                 return ['code' => 'auth.sms_initiated', 'challenge_id' => $challenge->challenge_id];
+            })(),
+            'report' => (function () use ($request): array {
+                $httpRequest = Request::create('/api/reports', 'POST', server: [
+                    'CONTENT_TYPE' => 'application/json',
+                    'HTTP_ACCEPT' => 'application/json',
+                    'REMOTE_ADDR' => '127.0.0.1',
+                ], content: json_encode($request['payload'], JSON_THROW_ON_ERROR));
+                $kernel = app(HttpKernel::class);
+                $response = $kernel->handle($httpRequest);
+                $kernel->terminate($httpRequest, $response);
+
+                return [
+                    'status' => $response->getStatusCode(),
+                    'body' => json_decode($response->getContent(), true, flags: JSON_THROW_ON_ERROR),
+                ];
             })(),
             default => throw new RuntimeException('Unknown worker operation.'),
         };

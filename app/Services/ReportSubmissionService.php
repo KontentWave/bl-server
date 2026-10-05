@@ -17,8 +17,7 @@ class ReportSubmissionService
     public function __construct(
         private readonly DeviceSignatureService $deviceSignatureService,
         private readonly EscortPhoneNumberNormalizer $phoneNumberNormalizer,
-    ) {
-    }
+    ) {}
 
     public function submit(string $clientPhoneNumber, string $feature, string $publicKey, string $signature): array
     {
@@ -51,15 +50,24 @@ class ReportSubmissionService
         $threshold = (int) config('reporting.threshold', 3);
 
         return DB::transaction(function () use ($clientHash, $reporterHash, $feature, $threshold): array {
-            $client = Client::query()->firstOrCreate([
+            // A no-op upsert also serializes first creation without an early REPEATABLE-READ snapshot.
+            DB::table('clients')->upsert([[
                 'client_hash' => $clientHash,
-            ]);
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]], ['client_hash'], ['client_hash']);
+
+            $client = Client::query()
+                ->where('client_hash', $clientHash)
+                ->lockForUpdate()
+                ->firstOrFail();
 
             $alreadyReported = Report::query()
                 ->where('client_id', $client->id)
                 ->where('reporter_hash', $reporterHash)
                 ->where('feature', $feature)
-                ->exists();
+                ->lockForUpdate()
+                ->first();
 
             if ($alreadyReported) {
                 throw DuplicateReportException::create($feature);
@@ -74,11 +82,13 @@ class ReportSubmissionService
             $uniqueReporterCount = Report::query()
                 ->where('client_id', $client->id)
                 ->where('feature', $feature)
+                ->lockForUpdate()
                 ->count();
 
             $levelTwo = $uniqueReporterCount >= $threshold;
 
             $featureLevel = ClientFeatureLevel::query()
+                ->lockForUpdate()
                 ->firstOrNew([
                     'client_id' => $client->id,
                     'feature' => $feature,
@@ -102,6 +112,6 @@ class ReportSubmissionService
                 'level' => $levelTwo ? 'level_2' : 'level_1',
                 'ready_for_sync' => $levelTwo,
             ];
-        });
+        }, 3);
     }
 }

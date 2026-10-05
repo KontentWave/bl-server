@@ -5,7 +5,7 @@
          colors="true"
 >
     <testsuites>
-        <testsuite name="Isolated MariaDB OTP">
+        <testsuite name="Isolated MariaDB concurrency">
             <directory>tests/Database</directory>
         </testsuite>
     </testsuites>
