@@ -89,6 +89,22 @@ Implementation:
 - `is_level_two` becomes true when the count reaches the configured threshold.
 - `promoted_at` is recorded the first time Level 2 is reached.
 
+### 7. CB-07: serialize report persistence at the client boundary
+
+**Updated:** 2026-10-05 15:08:15 CEST (UTC+02:00). Local implementation; publication/deployment unapproved.
+
+**Publication approval:** 2026-10-05 15:47:52 CEST (UTC+02:00). User approved complete backend review, feature branch, scoped commit/push and PR creation. Separate exact-head merge and deployment approvals remain pending; original implementation checkpoint above is preserved.
+
+Independent report HTTP workers reproduced stale materialized counts and generic duplicate SQL failures in baseline `6c96c1d4cee869a7cfbe878c24def13206715181`. Uniqueness prevents extra tuples but does not serialize count/promotion decisions.
+
+[ReportSubmissionService](../../../app/Services/ReportSubmissionService.php) now performs a no-op upsert on the unique client hash before an explicit client row lock. This also protects concurrent first-client creation without opening an early REPEATABLE-READ snapshot or suppressing persistence errors. Existing client timestamps are unchanged. Duplicate checks, report insertion, current count/feature reads and promotion writes share the same transaction. Current locking reads also handle a pre-existing outer snapshot; first-feature creation needs no separate gap/cache lock.
+
+The lock covers all features for one client. This deliberately trades same-client feature throughput for a simple, stable lock order using existing schema. Feature counts/promotion remain independent, and different clients can proceed concurrently. A feature-row lock alone cannot safely protect a row that does not yet exist; a global/cache lock would unnecessarily couple unrelated clients and introduce another store/TTL failure boundary.
+
+At most three Laravel-classified database-concurrency attempts retry only database work. Binding authorization, normalization and signature validation remain outside; there is no SMS, networking, dispatch or external side effect in the closure. Non-concurrency/exhausted failures surface normally. Duplicate-domain HTTP status/code/envelope and successful response shapes are unchanged; no Android coordination change is required.
+
+[MariaDB concurrency tests](../../../tests/Database/ReportConcurrencyTest.php) verify actual worker overlap/lock waits, creation races, independent state, rollback and signed query visibility under both isolation levels. Retry tests use explicitly synthetic trigger errors to check bounds, not natural-deadlock claims. [SQLite regressions](../../../tests/Feature/Reports/StoreReportTest.php) preserve configured thresholds, timestamps and identity/signing behavior. Neither suite proves hosted deployment, live SMS or beta readiness.
+
 ## Rejected Alternatives
 
 ### Storing plain-text phone numbers in reporting tables

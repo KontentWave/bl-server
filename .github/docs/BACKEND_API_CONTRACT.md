@@ -95,7 +95,7 @@ The current empty-error serialization is `[]`, not the object used by some older
 - Outside `local`/`testing`, `CACHE_LIMITER` must select a shared `database` or `redis` store with working locks; other drivers fail closed with HTTP 503 and `abuse_protection_unavailable`. Provision the existing cache/lock tables for database storage. All workers must share the store, key prefix and application key. Redis must preserve counters for their TTL; eviction, cache flushing or isolated per-worker stores invalidate the budget guarantees.
 - The portal fetcher requires PHP cURL supporting `CURLOPT_CONNECT_TO` (libcurl 7.49+). Verify the actual hosted PHP transport, DNS resolution, HTTPS proxy tunnel and portal URLs before release. Missing pinning support fails closed; do not disable TLS verification to make a test pass.
 - Configure trusted reverse proxies narrowly and enforce web-server request/body limits. Set production/debug/scraper/recipient-override flags as required by the approved beta deployment; this code does not change hosted settings.
-- OTP validation, binding mutation and challenge consumption run in one database transaction. Verification and resend lock by the same phone index; verification rechecks the requested challenge ID under that lock. Both transactions permit at most three attempts for database concurrency errors. Verification-attempt reservation is outside the transaction so database-backed counters survive rejected verification/rollback; SMS dispatch is outside the resend transaction and is not retried by it. Request fields, signatures, success/failure envelopes and replacement-before-SMS semantics remain unchanged. The separate [MariaDB test runner](../../scripts/test-mariadb.php) exercises genuine local overlap on MariaDB 11.4 with `REPEATABLE-READ` and `READ-COMMITTED`; this does not establish the deployed isolation/configuration or hosted readiness. Reporting concurrency, dependency advisories and the other beta gates remain separate work.
+- OTP validation, binding mutation and challenge consumption run in one database transaction. Verification and resend lock by the same phone index; verification rechecks the requested challenge ID under that lock. Both transactions permit at most three attempts for database concurrency errors. Verification-attempt reservation is outside the transaction so database-backed counters survive rejected verification/rollback; SMS dispatch is outside the resend transaction and is not retried by it. Request fields, signatures, success/failure envelopes and replacement-before-SMS semantics remain unchanged. The separate [MariaDB test runner](../../scripts/test-mariadb.php) exercises genuine local overlap on MariaDB 11.4 with `REPEATABLE-READ` and `READ-COMMITTED`; this does not establish the deployed isolation/configuration or hosted readiness. Local reporting serialization is described below; publication/deployment, dependency advisories and the other beta gates remain separate.
 
 ## POST /api/auth/initiate
 
@@ -431,6 +431,17 @@ json_encode([
 - `signature_invalid`: the report signature does not match the canonical payload.
 - `duplicate_report`: the same bound reporter has already submitted the same feature for the same client.
 - `client_phone_number_invalid`: the client phone number could not be normalized into supported E.164 form.
+
+### Atomicity and concurrent submissions
+
+Local CB-07 implementation preserves the request, signature and success/error shapes; no Android wire change is required. Publication and deployment are separate approvals.
+
+- Client creation, report insertion and materialized per-feature count/promotion commit or roll back together. Client-level database serialization protects first creation and concurrent reports; independent feature counts remain separate.
+- With threshold three, the second and third distinct reporters return counts two and three in serialized order, leaving three report rows and Level 2. Successful counts describe that submission's committed transaction, not a promise that no later report has arrived.
+- Racing identical client/reporter/feature submissions produce one report and the existing duplicate failure: HTTP **422**, `success: false`, `code: duplicate_report`, the existing message and `errors.feature`, and `meta: {retryable: false, feature: <key>}`. The reporter identity is still the bound phone hash, not the public key.
+- The first `promoted_at` is retained. Signed blacklist checks expose only committed Level 2 state; uncommitted/rolled-back promotion is hidden.
+- Database-only work permits at most three attempts for Laravel-classified concurrency errors. Signature/binding checks and external effects are not repeated by this transaction; non-concurrency or exhausted failures are not converted into success/duplicate responses. This is not an instruction for Android to replay a request automatically.
+- Local MariaDB 11.4 tests exercise both isolation levels with independent signed HTTP workers and observed InnoDB lock waits. In-memory SQLite regressions, local HTTP workers and synthetic trigger failures do not certify the deployed engine, cache, workers, Android device or hosted behavior.
 
 ## POST /api/blacklist/check
 

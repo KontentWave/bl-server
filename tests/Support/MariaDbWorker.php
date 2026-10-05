@@ -14,7 +14,7 @@ class MariaDbWorker
 
     private string $buffer = '';
 
-    public function __construct(string $operation, array $payload, bool $pauseAfterLock, string $now)
+    public function __construct(string $operation, array $payload, bool $pauseAfterLock, string $now, ?string $pauseQuery = null)
     {
         $this->input = new InputStream;
         $this->input->write(json_encode([
@@ -22,6 +22,7 @@ class MariaDbWorker
             'payload' => $payload,
             'pause_after_lock' => $pauseAfterLock,
             'now' => $now,
+            'pause_query' => $pauseQuery,
         ], JSON_THROW_ON_ERROR)."\n");
         $this->process = new Process([PHP_BINARY, base_path('tests/Support/mariadb-worker.php')], base_path());
         $this->process->setInput($this->input);
