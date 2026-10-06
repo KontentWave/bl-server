@@ -29,6 +29,21 @@ In addition, [Laracasts](https://laracasts.com) contains thousands of video tuto
 
 You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
 
+## Local PHP dependencies
+
+The [manifest](composer.json) has root PHP constraint **`^8.4.1`**, matching the [resolved graph](composer.lock)'s minimum. The approved October 5 remediation aligns the root constraint with Symfony 8.1's actual minimum. Validate the complete graph on each intended runtime; only local PHP 8.4.12 was tested, and hosted PHP compatibility remains unverified.
+
+For a local install without application-mutating Composer hooks or plugins:
+
+```sh
+composer install --no-interaction --no-plugins --no-scripts
+composer validate --strict --no-check-publish --no-interaction --no-plugins --no-scripts
+composer check-platform-reqs --lock --no-dev --no-interaction --no-plugins --no-scripts
+composer audit --locked --no-dev --abandoned=report --no-interaction --no-plugins --no-scripts
+```
+
+The [readiness review](.github/docs/BETA_READINESS_REVIEW_2026-10-05.md#local-php-dependency-remediation) records exact updates, fresh zero-advisory production/complete audits, isolated regressions and remaining gates. No hooks, deployment or live SMS are authorized by these commands. A zero-advisory result is time-bound metadata, not overall closed-beta readiness.
+
 ## Isolated backend tests
 
 The normal suite uses in-memory SQLite, regardless of inherited database settings, and rejects cached Laravel configuration:
@@ -38,7 +53,7 @@ DB_CONNECTION=sqlite DB_DATABASE=:memory: SMS_DRIVER=log \
 SMS_LOG_OTP_IN_NON_PRODUCTION=false vendor/bin/phpunit --no-progress
 ```
 
-For MariaDB 11.4 OTP concurrency checks, use a local Docker daemon, Docker Compose and PHP with `pdo_mysql`:
+For MariaDB 11.4 OTP and report concurrency checks, use a local Docker daemon, Docker Compose and PHP with `pdo_mysql`:
 
 ```sh
 php scripts/test-mariadb.php
@@ -49,7 +64,7 @@ The [runner](scripts/test-mariadb.php) provisions a unique [test container](comp
 
 The separate [MariaDB bootstrap](tests/bootstrap-mariadb.php) verifies container labels, port binding and temporary storage before allowing migrations. It forces a synthetic database/user, fixture portal extraction, log-only SMS with OTP logging disabled, and database-backed cache/locks. Tests reject stray HTTP requests. Existing configuration caches cause an explicit refusal, not an automatic cache deletion.
 
-[OTP tests](tests/Database/OtpConcurrencyTest.php) boot independent PHP workers and require observed InnoDB lock waits for overlapping verification and both resend/verification orders. They also check binding/consumption rollback and persistent attempt accounting. Payloads travel over private process pipes, not command-line arguments or temporary files. These are local service/database tests, not hosted, live-SMS or Android end-to-end certification. Report concurrency (CB-07) is outside this suite.
+[OTP tests](tests/Database/OtpConcurrencyTest.php) boot independent PHP workers and require observed InnoDB lock waits for overlapping verification and both resend/verification orders. They also check binding/consumption rollback and persistent attempt accounting. [Report tests](tests/Database/ReportConcurrencyTest.php) submit signed requests through independently booted HTTP kernels, covering threshold crossing, stable duplicates, first creation, independent state, rollback, bounded retries and promotion visibility. The [shared lock helper](tests/Support/AssertsMariaDbLockWait.php) verifies actual overlap. Payloads travel over private process pipes, not command-line arguments or temporary files. These are local service/HTTP-kernel/database tests, not hosted web-server, live-SMS or Android end-to-end certification.
 
 ## Agentic Development
 
