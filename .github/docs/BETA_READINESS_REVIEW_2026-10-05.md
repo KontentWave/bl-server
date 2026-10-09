@@ -8,6 +8,10 @@
 
 **Decision-package update:** 2026-10-06 10:15:42 CEST (UTC+02:00) - fresh local source inspection and owner role decisions in the [privacy/operator decision package](./OWNER_PRIVACY_OPERATOR_DECISIONS_2026-10-06.md). No dependency audit/test rerun or operational implementation; historical results below are unchanged.
 
+**Hosted qualification update:** 2026-10-09 20:26:35 CEST (UTC+02:00) - bounded read-only hosted/source observations below. Original source, audits, tests and decision timestamps remain historical; no remediation, service connection or operational change.
+
+**Database metadata update:** 2026-10-09 20:37:31 CEST (UTC+02:00) - separately approved read-only selected hosted database/schema inspection below; no application data, cache access, writes, transactions, functional locks or deployment. Historical evidence unchanged.
+
 **Source:** backend `main` and local `github/main` tracking ref at `38f088db7f626efe57ac51a060f4dc1c8d278448`.
 
 **Disposition:** BLOCKED for real-user closed beta. The known locked PHP advisory gate is locally remediated by the follow-up below; JavaScript reproducibility, dependency lifecycle, operator/privacy and hosted/client/live qualification remain separate. CB-06/CB-07/CB-10 source completion and local dependency success do not clear these gates.
@@ -19,6 +23,96 @@ Reviewed backend manifests/lockfile, routes, scheduler, persistence schemas/mode
 Executed read-only package/advisory checks and isolated mocked regressions. Only public package/advisory metadata was requested externally; no application/provider/hosted request or existing database connection was made. No dependency update/install, Laravel Artisan command, migration, cache clearing, pruning, backup, restore, key/binding mutation or live SMS was performed.
 
 No policy, retention duration, RPO/RTO, operator appointment or production setting is approved by this document. Implementation/publication/deployment and live SMS require their own approvals. Client-owned messages and attached snapshots are read-only.
+
+## October 9 bounded hosted qualification
+
+**Local/source:** `main`, HEAD, local `github/main` and live GitHub main freshly verified at `924c80256ecd4b24b568175895d2d789b9d17ba7`; tracked worktree/index clean before this documentation scope, pre-existing editor/ignored files preserved. Fresh local CLI PHP 8.4.12 / Composer 2.9.5 only; no audits/application tests rerun. Repository instructions and actual handoffs/decisions/map/contract/relevant ADRs inspected; Morph unavailable.
+
+**Hosted window:** 2026-10-09 20:22:36-20:24:45 CEST (UTC+02:00). Existing `origin` SSH destination/account/port only, strict host-key checking and batch authentication. Shell reported CEST; standalone PHP's final timestamp was UTC. Bounded path/Git/runtime/JSON/static sanitized config and target cron/process metadata only, followed by one health request. No application bootstrap/autoload, raw config dump, cached PHP config execution, DB/cache connections or provider/proxy probes.
+
+| Surface | Fresh observation | Limit / blocking difference |
+| --- | --- | --- |
+| Revision/layout | Bare repository and clean serving worktree at `a1e36535f781e0a0fd51847e738576ac5eccbd12`, 16 commits behind main; inspected tracked source digest matches local historical revision. Public subdomain front controller references the backend's autoload/bootstrap under the same account. | On-disk entrypoint relationship, not independent vhost/OPcache attestation. Published SMS hardening, URL/request/DNS/redirect controls, API/OTP/SMS abuse guard, OTP/report concurrency fixes and dependency remediation are not deployed. |
+| CLI PHP | `/usr/bin/php` 8.5.10, CLI ini under `/etc/php/8.5/cli`, meets approved 8.4.1. cURL/OpenSSL/PDO MySQL/SQLite, mbstring/DOM/fileinfo present; old production-lock required extension names all present. | Redis extension absent; no full version-constrained platform qualification. No web PHP version/extension/config parity evidence from accessible target metadata. Do not infer it from CLI or health. |
+| Static transport | libcurl 7.81.0 / OpenSSL 3.0.2; HTTPS protocol, pinning/HTTPS/SOCKS proxy constants and DNS function present. | No actual DNS, TLS tunnel, proxy or portal qualification; proxy driver non-none, unrecognized label redacted, endpoint/credentials present only. |
+| Dependencies | Hosted manifest/lock match historical source and content hash. 113 installed entries equal old lock names/version/dist references: 82 production / 31 development, development installed; Laravel 13.2.0, Guzzle 7.10.0, PSR-7 2.9.0, HttpFoundation/HttpKernel 8.0.7, DomCrawler 8.0.8; root `^8.3`. | Not current 83/31 remediated artifact. Versions overlap the prior pre-remediation advisory inventory; prior zero-advisory results do not qualify hosting. No fresh hosted audit or package-file integrity check; no exploitability claim. |
+| Static flags | `.env`: staging/debug false, HTTP portal, SMSTools, OTP logging false, development recipient override present. SMSTools credential, app key and explicit sender present; Vonage credentials absent. Standard config cache absent, no alternate path or inherited inspection-CLI selection overrides found. | Sanitized source intent only; effective web/FPM and long-lived loaded configuration unverified. Override blocks genuine scraped-recipient onboarding. Sender approval, funding/provider recipient scope/retention and delivery not proven. |
+| Stores | Intended MySQL, DB URL absent, DB credentials present; file cache, limiter unset/absent in old source, file sessions, sync queue. DB cache/lock connection overrides absent. | Zero store connections. Current code's non-local shared-store guard would reject file cache after unchanged deployment; a shared database/Redis store and budget/key/prefix continuity require an approved plan. No migrations/schema/engine/isolation/grants/constraints or functional locks certified. |
+| Operations | No target entries in accessible account crontab or scoped account-owned queue/scheduler processes; probe/preview flags false. Target `.htaccess` rewrites to front controller; no target PHP version directive/`.user.ini` or account `.fpm` files. | Synchronous auth does not establish a queue-worker need. Managed jobs/hidden services, FPM pool, reverse proxies/body limits, alerts/log rotation, backups and actual web config remain unavailable/unverified. |
+| Assets/health | Hosted Vite manifest/hot marker and npm/yarn/pnpm locks absent. Exactly one HTTPS GET `/up` at 20:24:04 CEST returned HTTP 200, TLS verification 0, zero redirects; body/headers discarded. | JS reproducibility/API-only artifact remains separate. Health does not prove current worker/source identity, DB/cache/auth/SMS correctness or overall beta readiness. |
+
+**Inspection limitations:** the first process helper used `php -n`, which omits POSIX; ordinary CLI rerun completed without bootstrapping Laravel. A local manifest-hash helper initially used incorrect JSON options; inspecting Composer's algorithm and rerunning confirmed hash consistency. No application service access or hosted mutation resulted.
+
+**Prior executed local evidence:** October 5/6 Laravel 13 retained, 16 production upgrades / one polyfill / no removals, 83 production / 31 unchanged development entries, production/complete locked audits zero advisories/abandoned; approved root `^8.4.1`, full SQLite 157/680, combined MariaDB 18/560 per isolation. Detailed original results/failures below are unchanged, not new hosted checks. Ten unaffected unmaintained Symfony 8.0 components and JavaScript lockfile/reproducibility/API-only scope remain separate concerns for current main.
+
+**Owner/client reports:** October 9 handoff reports native Kotlin/Compose HEAD `2a7e726a0fb6750c2c398ab6502ca936d27a9d97`, not independently verified here; prior Android tests retain their client-reported limits. Publisher-key storage is complete and owner-accepted for this beta; recovery remains untested, not a signing prerequisite or database recovery evidence. No renewed custody questionnaire. Sole-owner operation may use an agreed pause policy; a deputy is not automatically mandatory. Specific private support contact, pause/unavailability and alert/access policy remain unconfirmed, alongside privacy/retention/provider handling, RPO/RTO and restore/identity safety.
+
+**Next-step history:** at the 20:26:35 completion, read-only hosted database/schema qualification was proposed. Owner separately approved it at 20:28:38 in the actual ignored server handoff; it was executed under the separate task below. Deployment/configuration/rollback planning is now the smallest proposed next task, not operational execution.
+
+**Android coordination:** report findings through the ignored [server handoff](./client-docs/SERVER_TO_CLIENT.md); no wire/API/client change. Backend readiness precedes signed APK/physical-phone qualification and later jointly approved genuine-recipient acceptance. BETA-BACKEND-001 and BETA-SMS-001 remain OPEN/BLOCKED; this is not hosted certification, live-SMS evidence or overall closed-beta readiness.
+
+## October 9 hosted database/schema metadata qualification
+
+**Recorded:** 2026-10-09 20:37:31 CEST (UTC+02:00). **Database window:** 20:36:59-20:37:01 CEST; standalone PHP emitted `18:36:59Z` to `18:37:01Z`. Existing origin SSH with batch authentication/strict host-key checking, `/usr/bin/php` CLI 8.5.10 / standalone PDO MySQL only. No Laravel/autoload/bootstrap or cached PHP configuration execution. Credentials resolved strictly from inspected static configuration in hosted process memory; no credentials, DSNs or raw grants emitted/stored.
+
+**Fresh baseline:** local main/HEAD/local github/main `924c80256ecd4b24b568175895d2d789b9d17ba7`, empty index, existing two tracked documentation changes and editor/ignored files preserved. Fresh 20:35:14 anchor confirms bare/clean serving HEAD `a1e36535f781e0a0fd51847e738576ac5eccbd12`, 16 commits behind. Live GitHub equality remains the earlier October 9 observation, not a new request. All 13 [migration sources](../../database/migrations/) and [database configuration](../../config/database.php) are identical between deployed/current source; current [cache configuration](../../config/cache.php) adds limiter selection.
+
+### Engine, session and privileges
+
+| Surface | Fresh sanitized observation | Limit |
+| --- | --- | --- |
+| Engine | MariaDB **11.4.13**, despite static `DB_CONNECTION=mysql` | Actual direct selected connection, not inferred from driver label or prior owner report. |
+| Isolation | **REPEATABLE-READ** in this inspection session | No global-default query or Laravel/web-session parity qualification; no transaction begun. |
+| Direct grants | SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP, REFERENCES, LOCK TABLES, TRIGGER all true on scoped tables; parser complete, no per-table variation | Declared capabilities, not exercised writes/locks or proof of functional sufficiency. DDL/lock/trigger permissions exceed ordinary runtime CRUD; no privilege change authorized. |
+| Metadata targets | Seven required tables plus ledger are ordinary InnoDB base tables, `utf8mb4_unicode_ci` | Legacy `auth_challenges` not visible, expected after rename. Scoped metadata cannot attest unrelated tables, data validity, triggers or effective web configuration. |
+
+Explicit built-in metadata projections only: scoped TABLES/COLUMNS/STATISTICS/TABLE_CONSTRAINTS/KEY_COLUMN_USAGE/REFERENTIAL_CONSTRAINTS; engine/version/session isolation; SHOW GRANTS reduced in memory to booleans. No application counts/samples/rows, cache contents, lock records, process lists, routines, functional cache access, writes, session changes, explicit transactions or row/advisory locks. The only table-row read was ledger migration identifiers/batches after its base-table/column checks. No repeat health, provider/proxy/scraper/SMS request.
+
+### Migration ledger comparison
+
+All **13 identifiers**, each **batch 1**, match both source revisions with no missing, extra or duplicate identifier observed:
+
+```text
+0001_01_01_000000_create_users_table
+0001_01_01_000001_create_cache_table
+0001_01_01_000002_create_jobs_table
+2026_03_31_120100_create_auth_challenges_table
+2026_03_31_123100_create_device_bindings_table
+2026_04_01_201500_add_challenge_fields_to_auth_challenges_table
+2026_04_01_211700_rename_password_hash_to_otp_hash_on_auth_challenges_table
+2026_04_01_212500_rename_auth_challenges_to_otp_challenges_table
+2026_04_07_170000_create_clients_table
+2026_04_07_170100_create_reports_table
+2026_04_07_170200_create_client_feature_levels_table
+2026_04_08_090000_add_blacklist_query_indexes
+2026_04_10_090000_create_scraper_proxy_attempts_table
+```
+
+Ledger metadata: `id int unsigned` auto-increment primary, required `migration varchar(255)`, required `batch int`. Ledger presence does not prove correct execution or existing data validity; users/session/job/probe table structures were not inspected. No pending schema delta between these source revisions, and no migration/repair/rebuild is justified or authorized by this check.
+
+### Scoped columns, indexes and foreign keys
+
+All listed primary/unique/query indexes are full-column BTREE (no prefix truncation). All IDs below are required auto-increment unsigned bigint primary keys; application `created_at`/`updated_at` are nullable timestamps. Remaining columns are required unless explicitly marked nullable.
+
+| Table / source | Verified columns beyond ID/timestamps | Verified uniqueness, query indexes and relationships |
+| --- | --- | --- |
+| `otp_challenges`: [creation](../../database/migrations/2026_03_31_120100_create_auth_challenges_table.php), [fields](../../database/migrations/2026_04_01_201500_add_challenge_fields_to_auth_challenges_table.php), [hash rename](../../database/migrations/2026_04_01_211700_rename_password_hash_to_otp_hash_on_auth_challenges_table.php), [table rename](../../database/migrations/2026_04_01_212500_rename_auth_challenges_to_otp_challenges_table.php) | `phone_number varchar(16)`, `otp_hash varchar(255)`, `expires_at timestamp`; nullable `challenge_id char(36)`, `ad_url text`; no old `password_hash` | `otp_challenges_phone_number_unique`, `otp_challenges_challenge_id_unique`; nullable challenge IDs remain source-defined, not data-validated. |
+| `device_bindings`: [schema](../../database/migrations/2026_03_31_123100_create_device_bindings_table.php) | `phone_number varchar(16)`, `public_key longtext`, `verified_at timestamp` | `device_bindings_phone_number_unique`; no public-key query index in source or inspected schema. |
+| `clients`: [schema](../../database/migrations/2026_04_07_170000_create_clients_table.php) | `client_hash char(64)` | `clients_client_hash_unique`, supporting current no-op upsert/client serialization. |
+| `reports`: [schema](../../database/migrations/2026_04_07_170100_create_reports_table.php) | `client_id bigint unsigned`, `reporter_hash char(64)`, `feature varchar(64)` | `reports_client_id_reporter_hash_feature_unique`; `reports_client_id_feature_index`; `reports_client_id_foreign` to `clients.id`, DELETE CASCADE / UPDATE RESTRICT. |
+| `client_feature_levels`: [schema](../../database/migrations/2026_04_07_170200_create_client_feature_levels_table.php), [query index](../../database/migrations/2026_04_08_090000_add_blacklist_query_indexes.php) | `client_id bigint unsigned`, `feature varchar(64)`, `unique_reporter_count int unsigned`, `is_level_two tinyint(1)`; nullable `promoted_at timestamp` | `client_feature_levels_client_id_feature_unique`; `client_feature_levels_client_id_is_level_two_idx`; `client_feature_levels_client_id_foreign` to `clients.id`, DELETE CASCADE / UPDATE RESTRICT. |
+| `cache`: [schema](../../database/migrations/0001_01_01_000001_create_cache_table.php) | No ID/timestamps; `key varchar(255)` primary, `value mediumtext`, `expiration bigint` | `cache_expiration_index`, primary uniqueness on full key. |
+| `cache_locks`: [schema](../../database/migrations/0001_01_01_000001_create_cache_table.php) | No ID/timestamps; `key varchar(255)` primary, `owner varchar(255)`, `expiration bigint` | `cache_locks_expiration_index`, primary uniqueness on full key. |
+
+**Comparison result:** no scoped table/column/type/nullability/index/FK mismatch with deployed or current migrations. InnoDB plus REPEATABLE-READ and these indexes is structurally compatible with current [OTP](../../app/Services/OtpChallengeService.php)/[verification](../../app/Services/AuthVerificationService.php)/[report](../../app/Services/ReportSubmissionService.php) locking assumptions; it does not demonstrate corrected code deployment, natural contention/deadlocks, successful transactions, binding validity or materialized counts.
+
+**Database cache prerequisites:** absent DB cache/lock connection/table overrides select the default connection and standard `cache`/`cache_locks` structures under [cache configuration](../../config/cache.php). These tables and declared CRUD grants provide a structural candidate for later approved shared database cache/limiter selection, not driver selection or functionality certification. Acquisition/release/expiry/contention, counter TTLs, web-worker sharing and app-key/prefix/budget continuity were not tested. Do not flush caches or regain sending capacity on cutover/rollback. Prior hosted file-cache intent remains unchanged; current [shared-store guard](../../app/Services/OtpAbuseProtection.php) would reject it outside local/testing.
+
+### Remaining gates and smallest next task
+
+Metadata evidence is sufficient for a **bounded deployment/configuration/rollback planning task**, using existing evidence/source only: identify exact source/production dependency artifact, required web-PHP/effective-config evidence, explicit shared database cache/limiter connection/table choices, app-key/prefix/budget continuity and sending-hold policy, removal of development recipient override with approved provider sender/scope, quiescence/config refresh/worker applicability, schema-preserving rollback, and post-change acceptance/fail-closed criteria. Backups/RPO/RTO/restore-safe authorization and owner contact/pause/alerts are prerequisites to settle, not assumed complete. Planning is not deployment commands or execution; new service access, functional cache/lock tests, configuration changes, backup/restore, migration/deployment and live provider/SMS actions need separately bounded approval.
+
+Published SMS/URL/abuse/OTP/report/dependency fixes still are not deployed. Web PHP/configuration, functional cache/locks, live DNS/proxy/portal/SMS, privacy/retention/provider arrangements, backup/recovery and signed APK/install-update/physical-phone gates remain unqualified. Ten unaffected unmaintained Symfony 8.0 components and JS reproducibility/API-only artifact scope remain separate. October 5/6 local tests/audits are prior evidence, not rerun; client HEAD/tests and accepted publisher-key storage remain owner/client reports, recovery untested. No Android contract/signature/client change required. Both beta requests remain OPEN/BLOCKED.
 
 ## Executed dependency checks
 
@@ -105,7 +199,7 @@ The smallest proposed next slice is expired-only OTP retention after separate ow
 
 | Gate | Minimum evidence needed before real beta identities |
 | --- | --- |
-| Ownership and incident response | Named primary/backup operator, tester contact, alert/triage ownership, least-privilege host/DB/log access and a minimal redacted incident-evidence format |
+| Ownership and incident response | Named primary with confirmed coverage or an agreed sole-owner pause/unavailability policy; private tester contact, alert/triage ownership, least-privilege host/DB/log access and a minimal redacted incident-evidence format. October 9 direction does not make a deputy mandatory; the specific policy remains pending |
 | Retention/privacy notice | Approved purposes and retention periods for each category above; provider data-handling/notice review; documented deletion/dispute process; separately tested cleanup and backup-expiry rules |
 | Backup/restore | Approved RPO/RTO, consistent engine-appropriate backup, encryption/access/off-host storage and key custody, restore drill in a disposable isolated environment, application/schema/count/identity verification and recorded outcome |
 | Restore/revocation safety | Restoring a snapshot can resurrect consumed challenges, old bindings or revoked keys. Define explicit reconciliation/invalidation and revocation records before re-opening writes. Do not replay queued work or send SMS during drills |
