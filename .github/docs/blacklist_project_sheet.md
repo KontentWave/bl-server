@@ -1,3 +1,9 @@
+**Updated:** 2026-10-09 20:13:50 CEST (UTC+02:00) - active client direction and current qualification scope corrected.
+
+**Active client:** Native Android Kotlin/Compose in the client workspace's `legacy_android_kotlin/` directory. Its directory name is historical; it is the shipping client target.
+
+**Evidence boundary:** Phase 1-5 notes below retain historical implementation/validation context, not current hosted or closed-beta certification. Current remaining work is recorded in the [client handoff](./client-docs/CLIENT_TO_SERVER.md), [server handoff](./client-docs/SERVER_TO_CLIENT.md) and [owner decision package](./OWNER_PRIVACY_OPERATOR_DECISIONS_2026-10-06.md).
+
 ## Phase 1 - Foundation & Security Handshake
 
 Status: complete for the current Phase 1 scope. Implementation progress and evidence are tracked in `docs/BLACKLIST_ANDROID_PROGRESS.md`.
@@ -208,50 +214,34 @@ Replace the Phase 1 dummy scraper path with a production-ready Laravel extractio
 - ✅ **Hosted Android handoff validation:** after switching the temporary override to `+421917047260`, the public initiate endpoint returned challenge `3fc93e83-6a7e-4312-9e58-8df6305829ae` with masked phone metadata `+421***260`, proving that the hosted backend is ready for Android integration testing against the real server URL.
 - ⚠️ **Remaining Phase 5 work:** broaden portal coverage beyond `amaterky.sk`, add more production hardening around page-shape drift, and decide whether periodic proxy probing should remain scheduled in non-production only or graduate into a longer-term operational signal.
 
-## **Current Phase:** Phase 6 - The Expo Pivot (Cross-Platform Client & Native Bridges)
+## **Current Phase:** Closed-Beta Qualification - Native Android and Laravel
 
-### **Context & Architecture Pivot**
+### **Client and Backend Direction**
 
-The Laravel backend (Phases 1-5) is fully complete, physically tested, and strictly adheres to the `BACKEND_API_CONTRACT.md`. We are transitioning from a legacy Android-only Kotlin client to a unified cross-platform application using **Expo and React Native (TypeScript)**.
+Continue the existing Kotlin/Compose client and Laravel API. Reuse native Android Keystore signing, the existing network/repository layer, onboarding/reporting screens and call-interception/overlay implementation. Do not scaffold a replacement client or introduce cross-platform bridges.
 
-Because this application requires Zero-Trust hardware-backed cryptography and deep OS call interception, this Expo project will heavily utilize **Continuous Native Generation (CNG)**, custom Expo Native Modules, and Config Plugins.
+Backend source publication and local regression results do not establish the deployed revision, real SMS delivery or overall beta readiness. Keep the [API contract](./BACKEND_API_CONTRACT.md) stable and coordinate any client-visible behavior change before implementation.
 
 ### **Action**
 
-Establish the Expo UI foundation, rebuild the networking layer to communicate with the existing Laravel API, and implement the custom Native Bridges required for hardware cryptography (`CryptoVault`) and background call monitoring (`The Shield`).
+Qualify the current backend environment, then the signed native Android candidate on a selected physical test phone, before separately approved genuine-recipient onboarding and two-tester distribution.
 
 ### **Task Breakdown**
 
-1. **Expo Foundation & Routing:** Initialize the Expo SDK with Expo Router. Build the foundational UI screens (Onboarding/Ad URL input, OTP entry, Verified Home, and Reporting Form).
-2. **Networking Layer:** Implement Axios or Fetch instances strictly mapped to the `BACKEND_API_CONTRACT.md`. Ensure the client handles the `meta.retryable` state and the standard JSON response envelopes correctly.
-3. **Ad-Hoc Customization 1 (CryptoVault Native Module):** Create a custom Expo Native Module to handle the Phase 1 & Phase 3 cryptography.
-
-- **Android (Kotlin):** Implement Android Keystore (TEE/StrongBox) key generation (ECDSA) and payload signing.
-- **iOS (Swift):** Implement the Secure Enclave equivalent.
-- **Bridge:** Expose a simple asynchronous TypeScript method: `CryptoVault.signPayload(canonicalJson: string): Promise<string>`.
-
-4. **Ad-Hoc Customization 2 (The Shield Config Plugin):** Create the background interception capabilities.
-
-- **Android:** Inject the `BroadcastReceiver` (for `READ_PHONE_STATE`), the E.164 hashing logic, and the `SYSTEM_ALERT_WINDOW` overlay code into the Android build via an Expo Config Plugin.
-- **iOS:** Setup the architectural foundation for an iOS Call Directory App Extension (to be fully fleshed out in Phase 7).
+1. **Backend privacy/operator readiness:** Resolve purposes/notice, retention/deletion, provider handling, sole-owner contact/alerts/pause policy and database backup/restore expectations. Obtain separate approval before implementing retention, revocation or recovery.
+2. **Hosted qualification:** Verify revision, PHP 8.4.1+, dependencies/schema, database, shared cache/locks/workers, HTTPS and cURL/DNS/proxy protections. Verify effective SMSTools selection and genuine server-scraped recipient routing. Deployment/configuration changes and live SMS require separate approval.
+3. **Signed native candidate:** Under approved build/signing scope, verify publisher signature, packaged identity/version and release harness policy. Qualify installation and a compatible same-publisher update without clearing data or resetting device keys/bindings.
+4. **Physical Android qualification:** Exercise permissions, hardware-backed authentication keys, restart/reboot recovery without automatic API/SMS replay, real call lookup and overlay lifecycle, and relevant OEM/background behavior.
+5. **Joint acceptance:** With separate approval and recipient consent, demonstrate actual SMS receipt, OTP verification and signed report/query using the candidate. Agree tester support/incident contact and instructions before approved distribution.
 
 ### **Accessibility**
 
-- Use React Native's `accessible={true}` and `accessibilityLabel` props to match the exact TalkBack/VoiceOver semantics we established in the legacy Kotlin app.
-- Ensure the Red Warning Overlay (when triggered by the Android Config Plugin) forces an immediate accessibility announcement.
+- Preserve Compose accessibility semantics, TalkBack announcements, clear permission/error states and readable warning overlays.
+- Qualify actual device behavior; historical happy-path evidence does not replace current permission-denial, call-lifecycle or OEM checks.
 
 ### **Test Plan (Acceptance Criteria)**
 
-- **Expo Test 1 (UI/Routing):** Assert that the user can navigate from the Ad URL screen to the OTP screen, and that field validation works.
-- **Expo Test 2 (Native Bridge):** Assert that calling the `CryptoVault.signPayload()` method successfully passes data to the native layer and returns a Base64 signature string.
-- **Integration Test 1:** Assert that the Expo networking layer successfully formats the canonical JSON payload (handling forward-slash escaping `\/` as defined in the API contract) before sending the `POST /api/auth/verify` request.
-
----
-
-### 🚀 Next Steps for Copilot Setup:
-
-When you create your new folder and run `npx create-expo-app@latest`, I highly recommend pasting this exact prompt to GitHub Copilot in your editor to properly reset its context:
-
-> _"Copilot, we are beginning Phase 6 of our project. The Laravel backend is fully finished. We are pivoting from a legacy Kotlin app to Expo/React Native. Please review the `expo_project_sheet.md` and the `BACKEND_API_CONTRACT.md`. Our first goal is to set up the basic Expo Router UI and the Axios networking layer. Acknowledge this pivot, and let me know when you are ready to generate the first UI screens."_
-
-Are you ready to dive into the TypeScript UI, or would you like to start by defining the exact BDD `.feature` file for the **CryptoVault Native Module** so Copilot knows exactly how the bridge needs to behave?
+- Preserve canonical signing, stable API envelopes, duplicate-report semantics and no automatic request replay.
+- Record signed APK identity/update outcomes and physical-device permission, restart, key and call/overlay results separately from JVM/emulator evidence.
+- Record hosted protection/configuration evidence separately from local mocked/concurrency tests; provider acceptance alone is not SMS delivery.
+- Keep `BETA-SMS-001` and `BETA-BACKEND-001` OPEN/BLOCKED until their actual acceptance criteria pass. This document authorizes no build/signing, device operation, hosted access, deployment, live SMS or distribution.
