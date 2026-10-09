@@ -1,5 +1,11 @@
 # `PROJECT_ROADMAP.md`
 
+**Updated:** 2026-10-09 20:13:50 CEST (UTC+02:00) - clarify active native client and historical verification boundaries.
+
+**Active client:** Native Android Kotlin/Compose in the client workspace's `legacy_android_kotlin/` directory; the directory name is historical, not an instruction to replace the client.
+
+**Current priority:** Closed-beta qualification, not a client rewrite. Phase statuses below describe historical MVP scope and do not certify current hosting or beta readiness. Follow the remaining-work [client handoff](./client-docs/CLIENT_TO_SERVER.md), [server findings](./client-docs/SERVER_TO_CLIENT.md) and [owner decisions](./OWNER_PRIVACY_OPERATOR_DECISIONS_2026-10-06.md) for backend privacy/operator/restore gates, hosted qualification, signed APK/install-update, physical-device checks and separately approved genuine-recipient onboarding.
+
 ## 🌍 Project Vision
 
 To build a highly secure, privacy-first Android application and Laravel backend that protects sex workers from dangerous clients. The system operates on a Zero-Trust, Hardware-Bound authentication model, ensuring that only verified workers can access or submit community-validated, cryptographic hashes of dangerous phone numbers.
