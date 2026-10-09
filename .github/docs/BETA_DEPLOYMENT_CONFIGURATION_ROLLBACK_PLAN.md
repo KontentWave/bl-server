@@ -196,7 +196,22 @@ Evidence bundles contain timestamps/timezone, source/artifact/config version, ap
 | Rollback authority | **None:** read-only task permits no changes to roll back. If side effects would be necessary, stop and request a new approval. No inherited access/publication permission. |
 | Result | A sanitized pass/unknown/blocker matrix for runtime/config parity and hold feasibility, refining the next exact cutover/test approval. It cannot clear SMS/backend beta gates. |
 
-After that preflight, settle remaining owner/artifact/recovery choices before requesting a cutover scope. No deployment, live SMS and APK distribution are bundled into this recommendation.
+### Later qualification - October 9 runtime/configuration/hold preflight
+
+**Recorded:** 2026-10-09 21:19:34 CEST (UTC+02:00). This is a later qualification, not a change to the original planning/publication authority or fixed deployment candidate. Owner separately approved one exact read-only origin SSH session at **21:18:54**; execution was **21:19:15-21:19:15 CEST**, one-second timestamp resolution, with batch authentication/strict host-key checking, 10-second connect timeout, one attempt and 120-second total cap.
+
+Only known bare/serving backend paths and public front-controller mapping were read using existing Git/checksum/file-existence/fixed-string mechanisms. No PHP/config execution, application bootstrap, remote helper, account crawl, process/environment dump, service connection, health/API request, change or control activation. **Stop reached:** no reviewed effective-web mechanism, adequate serving-worker visibility or supplied ingress/drain-control attestation. No reconnect or expanded access; no rollback authority.
+
+- Local `main`/HEAD/local `github/main` now `90a86b0c27ffd7ef088aecd3bf2d130f40fd26a2`, containing PR #10 documentation; application/runtime/lock inputs still equal fixed candidate `c4e16a4a393f56c887e747465cdd1e161c2dc558`. No live GitHub query. Production artifact remains unbuilt.
+- Fresh on-disk bare/serving HEAD remains `a1e36535f781e0a0fd51847e738576ac5eccbd12`; tracked worktree clean, untracked paths not enumerated. Manifest/lock hashes match historical source, not candidate; target autoload/bootstrap textual references match. Autoload and development PHPUnit directory present; installed JSON checksum only, not fresh graph/package-file integrity or public-exposure qualification.
+- Target `.user.ini` and standard config cache absent. Effective web PHP/platform/cURL/TLS/PDO, handler/ini/OPcache, loaded artifact/configuration, store/connection/table/budget selections and worker parity remain UNKNOWN. Stable prefix/APP_KEY identity equality not attested; no key material/digest read.
+- Existing local Laravel 13.34.0 source exposes global maintenance middleware, file-state and pre-rendered entrypoint hooks, but no application-specific sending-hold switch. Maintenance can gate new requests only if effective middleware/path/worker coverage and bypass policy are established; `/up` is a configured exception and optional secret/cookie bypass exists. It does not drain already admitted synchronous sends/writes or fence unknown stale workers/other producers. Authorized operator/access prerequisites and enforceable hosted hold remain UNKNOWN/BLOCKED.
+
+The [pass/unknown/blocker matrix](./BETA_READINESS_REVIEW_2026-10-05.md#october-9-web-runtimeconfiguration-and-hold-feasibility-preflight) records provenance and exact unresolved surfaces. Earlier 20:22-20:24 CLI/static/health and 20:36:59-20:37:01 standalone database/schema evidence is not renewed or promoted to web/functional proof. Both beta gates remain OPEN/BLOCKED.
+
+**Revised smallest next task, separate approval:** local receipt/review of an already existing sanitized owner/hosting attestation for the same application. Require issuer role/time, active vhost/pool/runtime/platform/ini/OPcache, all-serving-worker coverage and loaded artifact/configuration selections, key/prefix identity-equality booleans only, and existing fence coverage of initiation/SMS, verification/binding and reports, bypasses/alternate ingress, stale workers/in-flight producers, drain observation, authorized operator and access prerequisites. No hosting connection, new diagnostic mechanism, secrets/raw configuration, service/HTTP requests, functional tests, control activation or mutation. If unavailable, stay blocked; new metadata/control implementation is a separately reviewed and approved task.
+
+After adequate evidence, settle remaining owner/artifact/recovery choices before requesting a cutover scope. No deployment, functional hosted tests, live SMS or APK distribution are bundled into this later qualification or next recommendation.
 
 ## 9. Completion and limitations
 
