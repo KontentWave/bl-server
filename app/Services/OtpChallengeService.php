@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Contracts\SmsSender;
+use App\Exceptions\ApiDomainException;
 use App\Exceptions\PhoneExtractionFailedException;
 use App\Jobs\ExtractPhoneFromAdJob;
 use App\Models\OtpChallenge;
@@ -29,6 +30,47 @@ class OtpChallengeService
             throw PhoneExtractionFailedException::create();
         }
 
+        return $this->issueForPhone($phoneNumber, $adUrl);
+    }
+
+    public function issueForOwner(string $phoneNumber): array
+    {
+        if (! config('security.owner_enrollment_enabled')) {
+            throw new ApiDomainException(
+                apiCode: 'owner_enrollment_unavailable',
+                message: 'Owner enrollment is unavailable.',
+                status: 403,
+                meta: ['retryable' => false],
+            );
+        }
+
+        $ownerPhoneNumber = config('security.owner_phone_number');
+
+        if (! is_string($ownerPhoneNumber) || preg_match('/^\+[1-9][0-9]{7,14}$/D', $ownerPhoneNumber) !== 1) {
+            throw new ApiDomainException(
+                apiCode: 'owner_enrollment_unavailable',
+                message: 'Owner enrollment is unavailable.',
+                status: 503,
+                meta: ['retryable' => false],
+                logLevel: 'error',
+                logContext: ['reason' => 'owner_phone_configuration_invalid'],
+            );
+        }
+
+        if (! hash_equals($ownerPhoneNumber, $phoneNumber)) {
+            throw new ApiDomainException(
+                apiCode: 'owner_enrollment_unavailable',
+                message: 'Owner enrollment is unavailable.',
+                status: 403,
+                meta: ['retryable' => false],
+            );
+        }
+
+        return $this->issueForPhone($ownerPhoneNumber, 'owner-enrollment');
+    }
+
+    private function issueForPhone(string $phoneNumber, string $adUrl): array
+    {
         $this->abuseProtection->reserveSms($phoneNumber);
         $plainTextOtp = $this->generateOtp();
 

@@ -402,7 +402,7 @@ class InitiateAuthTest extends TestCase
 
     public static function apiRoutes(): array
     {
-        return [['/api/auth/initiate'], ['/api/auth/verify'], ['/api/reports'], ['/api/blacklist/check']];
+        return [['/api/auth/initiate'], ['/api/auth/owner/initiate'], ['/api/auth/verify'], ['/api/reports'], ['/api/blacklist/check']];
     }
 
     #[DataProvider('authRouteLimits')]
@@ -421,6 +421,8 @@ class InitiateAuthTest extends TestCase
         return [
             ['initiate_per_minute', '/api/auth/initiate'],
             ['initiate_per_hour', '/api/auth/initiate'],
+            ['initiate_per_minute', '/api/auth/owner/initiate'],
+            ['initiate_per_hour', '/api/auth/owner/initiate'],
             ['verify_per_minute', '/api/auth/verify'],
         ];
     }
@@ -492,6 +494,7 @@ class InitiateAuthTest extends TestCase
     {
         return [
             ['/api/auth/initiate', 'ad_url', 2049],
+            ['/api/auth/owner/initiate', 'phone_number', 17],
             ['/api/auth/verify', 'public_key', 8193],
             ['/api/auth/verify', 'signature', 4097],
             ['/api/reports', 'public_key', 8193],

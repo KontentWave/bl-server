@@ -66,6 +66,73 @@ The separate [MariaDB bootstrap](tests/bootstrap-mariadb.php) verifies container
 
 [OTP tests](tests/Database/OtpConcurrencyTest.php) boot independent PHP workers and require observed InnoDB lock waits for overlapping verification and both resend/verification orders. They also check binding/consumption rollback and persistent attempt accounting. [Report tests](tests/Database/ReportConcurrencyTest.php) submit signed requests through independently booted HTTP kernels, covering threshold crossing, stable duplicates, first creation, independent state, rollback, bounded retries and promotion visibility. The [shared lock helper](tests/Support/AssertsMariaDbLockWait.php) verifies actual overlap. Payloads travel over private process pipes, not command-line arguments or temporary files. These are local service/HTTP-kernel/database tests, not hosted web-server, live-SMS or Android end-to-end certification.
 
+## Optional owner-phone enrollment
+
+For an owner who cannot obtain a portal ad, a separate enrollment path skips **only
+portal extraction**. It does not create an administrator role or bypass OTP,
+device signatures, SMS budgets, IP limits, report thresholds or duplicate rules.
+Existing ad-based enrollment is unchanged.
+
+Disabled by default in [security configuration](config/security.php):
+
+```dotenv
+OWNER_ENROLLMENT_ENABLED=false
+OWNER_PHONE_NUMBER=
+```
+
+To enable in an approved environment, supply the owner's number privately in
+canonical E.164 form (`+` followed by 8-15 digits, no spaces, nonzero country-code
+prefix), then enable the flag using the normal configuration/deployment process.
+Never commit the real number or use the development recipient override for this.
+Enabling this route does not configure SMS delivery or open HTTP admission.
+
+### Additive API contract (Android coordination required)
+
+- `POST /api/auth/owner/initiate`, JSON `{"phone_number":"<canonical E.164>"}`.
+  Only the exact configured number is eligible; callers cannot select another
+  recipient. Uses the same `throttle:api` and `throttle:auth-initiate` limiters as
+  ad-based initiation, including shared cross-route IP/SMS budgets.
+- Success is the existing **201 `auth.sms_initiated`** envelope: `success=true`,
+  `data.challenge_id`, `data.masked_phone_number`, `data.otp_expires_at`, `meta={}`.
+  No OTP or full phone is returned. This is SMS-adapter acceptance, not proof of
+  delivery; production log-only SMS cannot complete real enrollment.
+- Invalid input: **422 `validation_failed`**. Disabled or ineligible number:
+  **403 `owner_enrollment_unavailable`**. Enabled with missing/malformed private
+  configuration: **503 `owner_enrollment_unavailable`** and a sanitized operator
+  error log. Both owner-unavailable errors use `meta.retryable=false`.
+  Existing **429 `rate_limited`**, **503 `abuse_protection_unavailable`** and
+  **503 `sms_dispatch_failed`** behavior applies.
+- Continue with unchanged `POST /api/auth/verify`: `challenge_id`, received `otp`,
+  the device's `public_key` and signature over the existing canonical challenge
+  payload. OTP validity is 15 minutes with existing boundary semantics. Successful
+  verification creates/replaces the normal device binding; report/query
+  signatures remain mandatory.
+
+The Kotlin/Compose client needs an explicit owner-phone entry option that calls
+this endpoint, then reuses its existing OTP/device-signing and enrollment-state
+flow. There is no new verification contract, static OTP or secret client token.
+Do not hard-code the owner's number into the app. Client work and deployment are
+separate from this local backend implementation.
+
+Challenges share the existing unique-phone table and transaction/send lifecycle.
+The `ad_url` field records the literal provenance marker `owner-enrollment`, not
+a scraped or invented ad URL. Owner and ad challenges for the same phone replace
+each other; budgets are not reset or refunded on replacement or uncertain sends.
+Never automatically resend after a timeout or failed acceptance response.
+
+Bindings currently have no automatic expiry and grant ordinary access only.
+Keeping owner enrollment enabled allows later OTP-based enrollment on a new
+device, replacing that phone's prior key under existing rules; it does not
+guarantee irrevocable access or protect against number recycling/SIM takeover.
+Disabling the flag stops new owner challenges, but does not revoke an existing
+binding or an already-issued challenge (which retains normal expiry). Changing
+the configured number does not remove the old binding. Such revocation/cleanup
+must be handled explicitly, not by an automatic reset or migration.
+
+No schema migration, automatic seed or special production phone is installed.
+Local tests use synthetic numbers, in-memory SQLite and fake SMS/HTTP; they do not
+establish hosted readiness, actual SMS receipt or physical-device acceptance.
+
 ## Agentic Development
 
 Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
