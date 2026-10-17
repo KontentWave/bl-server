@@ -24,6 +24,7 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
+/.github/docs/.idea/
 /.github/docs/client-docs/
 /.github/copilot-instructions.md
 /.github/copilot-instructions.md:Zone.Identifier
