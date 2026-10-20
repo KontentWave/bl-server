@@ -1,6 +1,6 @@
 # Plugin and Module Integration Map
 
-**Inspected:** 2026-10-20 21:54:04 CEST (UTC+02:00), verified local clock; owner-phone allowlist/OTP/binding/report/query boundaries, SMS adapter recipient contract and existing hosted routing/request evidence. Local baseline `d0f25a30892cc240ed1b40629faa575cea16348f` plus uncommitted allowlist extension. Earlier deployment evidence below retains its original scope/date.
+**Inspected:** 2026-10-20 22:15:36 CEST (UTC+02:00), verified local clock; published owner-phone allowlist, activated beta runtime and no-send public HTTPS checks. Activation/source baseline and deployed candidate `8d98219a06c932fd966d761a3159135832331bbd`, reviewed source tree `fe574339922bd46165888a8bb13824f6bdd7aa0a`. Documentation-only publication may advance main without redeploying. Earlier deployment evidence below retains its original scope/date.
 
 ## Current closed-beta direction - existing phone screen with a private allowlist
 
@@ -51,11 +51,60 @@ The [API contract](./BACKEND_API_CONTRACT.md#post-apiauthownerinitiate) and
 [README](../../README.md#closed-beta-reuse-the-existing-phone-screen) explain
 reuse of the installed phone/OTP screens and unchanged signed verification.
 Client label "Beta tester phone" is optional; the beta base must become
-`https://beta.zafo-forum.sk/api/`. Client files, hosted settings, private
-allowlist and SMS activation are not changed here. Existing key/Android recovery
-and actual delivery are not qualified by local tests.
+`https://beta.zafo-forum.sk/api/`. No Android checkout exists in this server
+workspace; the client URL/build/install is not changed. Preserve the client's
+existing uncommitted beta.2 work, app data and signing keys; do not substitute a
+clone of older published client source.
 
-Read-only hosted checks on October 20, 20:57-21:02 CEST: the client's
+**Publication and activation:** owner authorized branch/commit/push/PR merge/pull
+and beta deployment/configuration/SMS activation. [PR #22](https://github.com/KontentWave/bl-server/pull/22),
+reviewed head `2514566bc534df0cead552d248ad75d1df9fe3c5`, merged at
+20:01:17 UTC; local main pulled merge `8d98219a06c932fd966d761a3159135832331bbd`.
+Reviewed/merge trees match; exact-head merge, no bypass, GitHub CLEAN/mergeable
+with no checks listed (not CI-pass evidence). Seven-file scope, ignored handoff
+and real recipients excluded, co-author trailer verified. No origin push.
+
+Host result at 20:09:04 UTC: `PASS_BETA_ACTIVATED`. New private release
+`~/apps/bl-beta/releases/8d98219a-20261020/app/` is the beta index target; previous
+release retained. Bundle SHA-256
+`cc73b7662673a619f70f614ffbbc88e672646976e32cae1f70ae103e9fba8ba0`;
+unchanged lock SHA-256
+`4374bada085a68ad96a86e6e2da0b8e1a9e81cc404fb261609e2ec19a8f58c00`.
+Exported source inventory verified; initial inventory erroneously included
+`.github` files excluded by Git attributes and stopped before configuration.
+Corrected inventory follows the actual archive. Existing production vendor was
+copied without downloads, hooks, dependency changes or autoload regeneration;
+candidate autoload resolution verified.
+
+Private environment preserves beta APP_KEY/database/cache/budgets and unrelated
+settings. Owner enrollment is enabled with exactly three privately supplied
+canonical phones; singular fallback blank, no embedded values. SMS driver/binding
+is SMSTools using the existing working installation's private provider key/sender,
+expected HTTPS endpoint, bounded timeouts and OTP logging off. Development
+recipient override is blank. Portal remains fixture/no fixture directory; use
+phone enrollment for this beta, not the unqualified ad/scraper path.
+
+Native production/debug-off PHP 8.5.10 kernel checks passed health200,
+missing-owner-input422, ineligible synthetic phone403 and unsigned query401.
+Actual allowed-list count, adapter binding, threshold three, shared database
+limiter and encryption roundtrip verified. OTP/binding/client/report/feature and
+migration row counts unchanged. No seed, migration, key generation, flush or SMS.
+Smoke limiter/log writes remain; no counters were reset or refunded.
+
+After successful native checks, index symlink switched atomically and directory
+deny-all replaced with the candidate's standard Laravel rewrites. Public HTTPS
+checks at 20:09:41 UTC returned health200 and expected JSON 422/403/401 envelopes
+with object metadata, normal TLS verification and no redirects/proxy bypass.
+Zero SMS attempts; no genuine-recipient enrollment/delivery, signed device or
+incoming-call qualification follows. Uploaded phone input/archive/inventory/helper
+removed; private release/configuration retained. Old installation/source untouched.
+Independent read-only closeout at 20:15:40 UTC confirms active index/rewrites,
+mode-700 release/mode-600 environment, preserved beta key and matching private SMS
+key, exactly three allowed entries, all 6,824 copied vendor files byte-identical,
+no standard config cache, previous release retained and temporary inputs absent.
+
+Earlier read-only hosted checks on October 20, 20:57-21:02 CEST, before activation:
+the client's
 `bcuszlr92817.zafo-forum.sk` entrypoint still points to revision `a1e36535...`,
 with inspected source anchors matching HEAD, no owner route and no standard
 config/route caches. Beta points to release `934bb9d2-20261017`, matching inspected
@@ -65,8 +114,9 @@ all-worker/FPM attestations. Existing access records for October 20 show three
 owner-initiation 404s and eight blacklist-check 200s on the client hostname,
 plus ad initiation/verification success statuses. Response Content-Type/bodies,
 the requesting device and ringing-versus-manual origin are not established.
-Target-specific database inspection was explicitly deferred; no current counts
-or Level 2 claim. No new HTTP request, DB access, SMS, deployment or settings change.
+Target-specific database inspection was explicitly deferred; no current
+target counts or Level 2 claim. Those earlier read-only checks made no changes;
+the separately approved activation above supersedes beta's denied/log-only state.
 
 Local isolated allowlist and affected auth/report/query tests pass
 **111 tests / 946 assertions** (PHP 8.4.12, in-memory SQLite, mocked SMS/portal and
