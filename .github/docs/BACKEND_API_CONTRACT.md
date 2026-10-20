@@ -2,7 +2,7 @@
 
 This document defines the Android-facing contract for the Laravel backend across the current MVP phases. Android should treat this as the source of truth for request and response handling.
 
-This document supersedes the earlier phone-number-plus-password handshake. The current verification contract is ad-URL plus SMS OTP plus hardware-bound signature. Phase 5 scraper hardening changes the backend implementation behind `POST /api/auth/initiate`, but it does not change the Android-facing request or response shape.
+This document supersedes the earlier phone-number-plus-password handshake. Normal verification is ad-URL plus SMS OTP plus hardware-bound signature. The isolated closed beta can also use the existing owner-phone endpoint with a private phone allowlist; each recipient still completes SMS OTP and signed device verification. Phase 5 scraper hardening does not change the normal initiation request or response shape.
 
 The same response schema remains unchanged when the hosted backend is running in the temporary Vonage-trial integration mode documented in ADR 5. Android should continue to parse the normal success and failure envelopes and should not branch on whether OTP routing is currently live-scraped or temporarily redirected to a verified test number.
 
@@ -10,7 +10,7 @@ The same response schema remains unchanged when the hosted backend is running in
 
 - Base path: `/api`
 - Content type: `application/json`
-- Android client input: escort ad URL only
+- Android enrollment input: ad URL for normal enrollment, or canonical phone number for enabled owner/tester enrollment
 - Phone number format on the backend: E.164, for example `+421900123456`
 - Time format: ISO 8601 UTC timestamps
 
@@ -96,6 +96,76 @@ The current empty-error serialization is `[]`, not the object used by some older
 - The portal fetcher requires PHP cURL supporting `CURLOPT_CONNECT_TO` (libcurl 7.49+). Verify the actual hosted PHP transport, DNS resolution, HTTPS proxy tunnel and portal URLs before release. Missing pinning support fails closed; do not disable TLS verification to make a test pass.
 - Configure trusted reverse proxies narrowly and enforce web-server request/body limits. Set production/debug/scraper/recipient-override flags as required by the approved beta deployment; this code does not change hosted settings.
 - OTP validation, binding mutation and challenge consumption run in one database transaction. Verification and resend lock by the same phone index; verification rechecks the requested challenge ID under that lock. Both transactions permit at most three attempts for database concurrency errors. Verification-attempt reservation is outside the transaction so database-backed counters survive rejected verification/rollback; SMS dispatch is outside the resend transaction and is not retried by it. Request fields, signatures, success/failure envelopes and replacement-before-SMS semantics remain unchanged. The separate [MariaDB test runner](../../scripts/test-mariadb.php) exercises genuine local overlap on MariaDB 11.4 with `REPEATABLE-READ` and `READ-COMMITTED`; this does not establish the deployed isolation/configuration or hosted readiness. Local reporting serialization is described below; publication/deployment, dependency advisories and the other beta gates remain separate.
+
+## POST /api/auth/owner/initiate
+
+**Allowlist extension inspected locally, 2026-10-20 21:48:23 CEST (UTC+02:00), baseline
+`d0f25a30892cc240ed1b40629faa575cea16348f`; not deployed or client-qualified.**
+
+Reuses the installed client's **Owner phone** screen. Available only when
+`security.owner_enrollment_enabled` is explicitly enabled
+(`OWNER_ENROLLMENT_ENABLED=false` by default). No ad or portal extraction is
+needed, but SMS OTP and the existing signed verification remain mandatory.
+Shares `throttle:api` and `throttle:auth-initiate` with normal ad initiation.
+
+Request:
+
+```json
+{"phone_number":"<canonical E.164>"}
+```
+
+`phone_number` must be `+` followed by 8-15 ASCII digits with a nonzero first
+digit, no spaces, maximum 16 characters. No country-prefix guessing.
+HTTP 201 success is the existing `auth.sms_initiated` envelope:
+
+```json
+{
+    "success": true,
+    "code": "auth.sms_initiated",
+    "data": {
+        "challenge_id": "<UUID>",
+        "masked_phone_number": "<masked recipient>",
+        "otp_expires_at": "<ISO 8601>"
+    },
+    "meta": {}
+}
+```
+
+No OTP, full phone or allowlist is returned. SMS is dispatched to the exact
+eligible phone submitted, not a shared owner recipient. Success indicates
+adapter acceptance, not confirmed delivery. Continue with unchanged
+`POST /api/auth/verify`, then persist enrollment state only after `auth.verified`.
+Use the existing device key and signatures; no reset, invitation UI or new client
+request/response model is needed for the allowlist.
+
+Private configuration `OWNER_PHONE_NUMBERS` is a comma-separated E.164 list and
+supersedes `OWNER_PHONE_NUMBER` when nonempty. Only surrounding entry whitespace
+is trimmed. Every entry must validate; empty/malformed entries or a non-string
+list produce sanitized 503 `owner_enrollment_unavailable`, before issuance.
+Unset or exactly empty list preserves legacy single-number behavior.
+
+Disabled/ineligible: 403 `owner_enrollment_unavailable`. Invalid enabled private
+configuration: 503 with the same code and a sanitized operator error log. Both
+have `meta.retryable=false`. Invalid request: 422 `validation_failed`. Existing
+429 `rate_limited`, 503 `abuse_protection_unavailable` and 503
+`sms_dispatch_failed` behavior is unchanged. Never automatically resend on
+unknown acceptance or switch to ad initiation as a fallback.
+
+Uses the existing OTP table (provenance `owner-enrollment`), same-phone
+replacement, 15-minute expiry, shared recipient/global SMS budgets and signed
+verification. Distinct allowed phones bind distinct devices and count as distinct
+reporters; duplicate and per-feature promotion rules remain unchanged. An owner
+and two testers can reach threshold three only through their own valid
+contributions to the same target/feature. No special privileges or seeded reports.
+Removing a number or disabling issuance does not revoke already-issued
+challenges or verified device bindings.
+
+The beta client must use `https://beta.zafo-forum.sk/api/`; current older-host
+enrollment does not transfer its binding there. Existing screen labels may be
+renamed to "Beta tester phone", but no new onboarding mechanism is required.
+No personal values are embedded in the client or repository. No schema migration
+or seed is needed. The earlier undeployed invitation implementation was removed.
+See [README](../../README.md#closed-beta-reuse-the-existing-phone-screen).
 
 ## POST /api/auth/initiate
 

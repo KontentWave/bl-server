@@ -44,9 +44,17 @@ class OtpChallengeService
             );
         }
 
-        $ownerPhoneNumber = config('security.owner_phone_number');
+        $configuredPhoneNumbers = config('security.owner_phone_numbers');
+        $ownerPhoneNumbers = match (true) {
+            $configuredPhoneNumbers === null, $configuredPhoneNumbers === '' => [config('security.owner_phone_number')],
+            is_string($configuredPhoneNumbers) => array_map('trim', explode(',', $configuredPhoneNumbers)),
+            default => [],
+        };
 
-        if (! is_string($ownerPhoneNumber) || preg_match('/^\+[1-9][0-9]{7,14}$/D', $ownerPhoneNumber) !== 1) {
+        if ($ownerPhoneNumbers === [] || array_any(
+            $ownerPhoneNumbers,
+            static fn (mixed $number): bool => ! is_string($number) || preg_match('/^\+[1-9][0-9]{7,14}$/D', $number) !== 1,
+        )) {
             throw new ApiDomainException(
                 apiCode: 'owner_enrollment_unavailable',
                 message: 'Owner enrollment is unavailable.',
@@ -57,7 +65,7 @@ class OtpChallengeService
             );
         }
 
-        if (! hash_equals($ownerPhoneNumber, $phoneNumber)) {
+        if (! array_any($ownerPhoneNumbers, static fn (string $number): bool => hash_equals($number, $phoneNumber))) {
             throw new ApiDomainException(
                 apiCode: 'owner_enrollment_unavailable',
                 message: 'Owner enrollment is unavailable.',
@@ -66,7 +74,7 @@ class OtpChallengeService
             );
         }
 
-        return $this->issueForPhone($ownerPhoneNumber, 'owner-enrollment');
+        return $this->issueForPhone($phoneNumber, 'owner-enrollment');
     }
 
     private function issueForPhone(string $phoneNumber, string $adUrl): array

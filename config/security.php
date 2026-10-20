@@ -3,6 +3,7 @@
 return [
     'owner_enrollment_enabled' => (bool) env('OWNER_ENROLLMENT_ENABLED', false),
     'owner_phone_number' => env('OWNER_PHONE_NUMBER'),
+    'owner_phone_numbers' => env('OWNER_PHONE_NUMBERS'),
     'api_per_minute' => (int) env('API_RATE_LIMIT_PER_MINUTE', 60),
     'initiate_per_minute' => (int) env('AUTH_INITIATE_PER_MINUTE', 3),
     'initiate_per_hour' => (int) env('AUTH_INITIATE_PER_HOUR', 10),

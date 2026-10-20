@@ -78,18 +78,49 @@ Disabled by default in [security configuration](config/security.php):
 ```dotenv
 OWNER_ENROLLMENT_ENABLED=false
 OWNER_PHONE_NUMBER=
+OWNER_PHONE_NUMBERS=
 ```
 
-To enable in an approved environment, supply the owner's number privately in
+To enable single-owner enrollment, supply the owner's number privately in
 canonical E.164 form (`+` followed by 8-15 digits, no spaces, nonzero country-code
 prefix), then enable the flag using the normal configuration/deployment process.
 Never commit the real number or use the development recipient override for this.
 Enabling this route does not configure SMS delivery or open HTTP admission.
 
+### Closed beta: reuse the existing phone screen
+
+For an owner and two testers, set `OWNER_PHONE_NUMBERS` privately to their three
+comma-separated canonical E.164 numbers. Each person enters their own number in
+the existing **Owner phone** screen, receives an OTP on their own phone and
+completes the existing signed verification. No ad, invitation code, new screen,
+database seed or schema migration is required. "Beta tester phone" is an optional
+client-label improvement; request and response formats do not change.
+
+A nonempty `OWNER_PHONE_NUMBERS` list replaces, rather than extends,
+`OWNER_PHONE_NUMBER`. Surrounding whitespace around list entries is ignored;
+spaces inside a number, empty entries and malformed or non-string configuration
+make enabled enrollment fail closed with the existing sanitized 503 error. The
+whole list is checked before any SMS reservation or send. If the list is unset
+or exactly empty, legacy single-number behavior is preserved.
+
+SMS goes to the exact eligible number entered, never to the first entry or a
+shared owner recipient. Each verified number retains its own device binding and
+reporter identity; three different phones can satisfy the unchanged threshold
+for the same target/feature. Re-enrolling the same phone still replaces only its
+own device key. Disabling issuance or removing a number does not revoke existing
+bindings or issued challenges.
+
+The intended client base is `https://beta.zafo-forum.sk/api/`. The existing app
+still needs its base URL changed from the older hostname; hosted code/config/SMS
+activation and physical-device checks are not performed by this local change.
+Do not copy personal phone numbers into source, documentation or client builds.
+The earlier undeployed invitation implementation has been removed.
+
 ### Additive API contract (Android coordination required)
 
 - `POST /api/auth/owner/initiate`, JSON `{"phone_number":"<canonical E.164>"}`.
-  Only the exact configured number is eligible; callers cannot select another
+  Only a number in the configured allowlist (or legacy single number) is eligible;
+  callers cannot select another
   recipient. Uses the same `throttle:api` and `throttle:auth-initiate` limiters as
   ad-based initiation, including shared cross-route IP/SMS budgets.
 - Success is the existing **201 `auth.sms_initiated`** envelope: `success=true`,
@@ -108,11 +139,11 @@ Enabling this route does not configure SMS delivery or open HTTP admission.
   verification creates/replaces the normal device binding; report/query
   signatures remain mandatory.
 
-The Kotlin/Compose client needs an explicit owner-phone entry option that calls
-this endpoint, then reuses its existing OTP/device-signing and enrollment-state
-flow. There is no new verification contract, static OTP or secret client token.
-Do not hard-code the owner's number into the app. Client work and deployment are
-separate from this local backend implementation.
+The Kotlin/Compose client already has an explicit owner-phone entry option. The
+allowlist reuses that endpoint and its existing OTP/device-signing and
+enrollment-state flow. There is no new verification contract, static OTP or secret
+client token. Do not hard-code the numbers into the app. The beta URL change and
+deployment remain separate from this local backend implementation.
 
 Challenges share the existing unique-phone table and transaction/send lifecycle.
 The `ad_url` field records the literal provenance marker `owner-enrollment`, not

@@ -7,6 +7,7 @@ use App\Contracts\SmsSender;
 use App\Exceptions\SmsDispatchFailedException;
 use App\Models\DeviceBinding;
 use App\Models\OtpChallenge;
+use App\Models\Report;
 use App\Services\DeviceSignatureService;
 use App\Services\OtpAbuseProtection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,6 +24,8 @@ class InitiateOwnerAuthTest extends TestCase
 
     private const PHONE = '+421900123456';
 
+    private const TESTER_PHONES = ['+421900123456', '+421900123457', '+421900123458'];
+
     private object $smsSender;
 
     protected function setUp(): void
@@ -32,6 +35,7 @@ class InitiateOwnerAuthTest extends TestCase
         Carbon::setTestNow(Carbon::create(2026, 10, 17, 12, 0, 0, 'UTC'));
         config()->set('security.owner_enrollment_enabled', false);
         config()->set('security.owner_phone_number', null);
+        config()->set('security.owner_phone_numbers', null);
         Http::preventStrayRequests();
         Http::fake();
         $portal = Mockery::mock(EscortPortalClient::class);
@@ -83,6 +87,146 @@ class InitiateOwnerAuthTest extends TestCase
     public static function invalidConfiguration(): array
     {
         return [[null], [''], ['+421 900 123 456'], ['+0123456789'], ['not-a-number'], [['+421900123456']]];
+    }
+
+    public function test_a_configured_allowlist_does_not_enable_enrollment_by_itself(): void
+    {
+        config()->set('security.owner_phone_numbers', implode(',', self::TESTER_PHONES));
+        $this->initiate()->assertForbidden()->assertJsonPath('code', 'owner_enrollment_unavailable');
+        $this->assertNoIssuance();
+    }
+
+    #[DataProvider('invalidAllowlists')]
+    public function test_invalid_allowlists_fail_closed_without_falling_back_to_the_single_number(mixed $numbers): void
+    {
+        $this->enableOwner();
+        config()->set('security.owner_phone_numbers', $numbers);
+        $this->initiate()->assertStatus(503)
+            ->assertJsonPath('code', 'owner_enrollment_unavailable')
+            ->assertJsonPath('meta.retryable', false)
+            ->assertDontSee(self::PHONE);
+        $this->assertNoIssuance();
+    }
+
+    public static function invalidAllowlists(): array
+    {
+        return [
+            [' '],
+            [','],
+            [self::PHONE.','],
+            [self::PHONE.',,'.self::TESTER_PHONES[1]],
+            [self::PHONE.',not-a-phone'],
+            [self::PHONE.',+0123456789'],
+            [self::PHONE.';+421900123457'],
+            [self::PHONE.',+421 900 123 457'],
+            [[self::PHONE]],
+            [false],
+            [123],
+        ];
+    }
+
+    public function test_the_allowlist_takes_precedence_over_the_legacy_single_number(): void
+    {
+        $this->enableOwner();
+        config()->set('security.owner_phone_numbers', self::TESTER_PHONES[1].', '.self::TESTER_PHONES[2]);
+        $this->initiate()->assertForbidden()->assertJsonPath('code', 'owner_enrollment_unavailable');
+        $this->assertNoIssuance();
+
+        $this->postJson('/api/auth/owner/initiate', ['phone_number' => self::TESTER_PHONES[2]])
+            ->assertCreated()->assertDontSee(self::TESTER_PHONES[1]);
+        $this->assertSame(self::TESTER_PHONES[2], $this->smsSender->messages[0]['phone_number']);
+        Http::assertNothingSent();
+    }
+
+    public function test_an_empty_allowlist_keeps_legacy_single_number_enrollment_working(): void
+    {
+        $this->enableOwner();
+        config()->set('security.owner_phone_numbers', '');
+        $this->initiate()->assertCreated();
+        $this->assertSame(self::PHONE, $this->smsSender->messages[0]['phone_number']);
+    }
+
+    public function test_resending_for_one_allowlisted_phone_does_not_replace_another_phones_challenge(): void
+    {
+        $this->enableOwner();
+        config()->set('security.owner_phone_numbers', implode(',', self::TESTER_PHONES));
+        $ids = [];
+        foreach (self::TESTER_PHONES as $phone) {
+            $ids[$phone] = $this->postJson('/api/auth/owner/initiate', ['phone_number' => $phone])
+                ->assertCreated()->json('data.challenge_id');
+        }
+
+        $this->travel(61)->seconds();
+        $this->initiate()->assertCreated();
+        $this->assertNotSame($ids[self::PHONE], OtpChallenge::query()->where('phone_number', self::PHONE)->sole()->challenge_id);
+        foreach (array_slice(self::TESTER_PHONES, 1) as $phone) {
+            $this->assertSame($ids[$phone], OtpChallenge::query()->where('phone_number', $phone)->sole()->challenge_id);
+        }
+        $this->assertDatabaseCount('otp_challenges', 3);
+        $this->assertSame(self::PHONE, $this->smsSender->messages[3]['phone_number']);
+        Http::assertNothingSent();
+    }
+
+    public function test_three_allowlisted_phones_enroll_independently_and_keep_normal_report_query_rules(): void
+    {
+        $this->enableOwner();
+        config()->set('security.owner_phone_number', null);
+        config()->set('security.owner_phone_numbers', ' '.implode(', ', self::TESTER_PHONES).' ');
+        $signatures = app(DeviceSignatureService::class);
+        $devices = [];
+        $targetPhone = '+421900000002';
+        $targetHash = hash('sha256', $targetPhone);
+
+        foreach (self::TESTER_PHONES as $index => $phone) {
+            $response = $this->postJson('/api/auth/owner/initiate', ['phone_number' => $phone])
+                ->assertCreated()->assertJsonPath('code', 'auth.sms_initiated')->assertDontSee($phone);
+            $this->assertSame($phone, $this->smsSender->messages[$index]['phone_number']);
+            $challengeId = $response->json('data.challenge_id');
+            $private = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
+            $this->assertNotFalse($private);
+            $details = openssl_pkey_get_details($private);
+            $this->assertIsArray($details);
+            $public = $signatures->normalizePublicKey($details['key']);
+            $this->assertTrue(openssl_sign($signatures->payload($challengeId, $public), $signature, $private, OPENSSL_ALGO_SHA256));
+            $verification = [
+                'challenge_id' => $challengeId,
+                'otp' => $this->smsSender->messages[$index]['otp'],
+                'public_key' => $public,
+                'signature' => base64_encode($signature),
+            ];
+            $this->postJson('/api/auth/verify', $verification)->assertOk()->assertJsonPath('code', 'auth.verified');
+            $this->postJson('/api/auth/verify', $verification)
+                ->assertUnprocessable()->assertJsonPath('code', 'challenge_not_found');
+            $devices[] = [$private, $public];
+
+            $this->assertTrue(openssl_sign($signatures->reportPayload($targetPhone, 'aggressive', $public), $signature, $private, OPENSSL_ALGO_SHA256));
+            $report = [
+                'client_phone_number' => $targetPhone, 'feature' => 'aggressive',
+                'public_key' => $public, 'signature' => base64_encode($signature),
+            ];
+            $this->postJson('/api/reports', $report)->assertCreated()
+                ->assertJsonPath('data.reporter_hash', hash('sha256', $phone))
+                ->assertJsonPath('data.unique_reporter_count', $index + 1)
+                ->assertJsonPath('data.level', $index === 2 ? 'level_2' : 'level_1');
+            $this->postJson('/api/reports', $report)
+                ->assertUnprocessable()->assertJsonPath('code', 'duplicate_report');
+
+            foreach ($devices as [$boundPrivate, $boundPublic]) {
+                $this->assertTrue(openssl_sign($signatures->blacklistCheckPayload($targetHash, $boundPublic), $signature, $boundPrivate, OPENSSL_ALGO_SHA256));
+                $this->postJson('/api/blacklist/check', [
+                    'target_hash' => $targetHash, 'public_key' => $boundPublic, 'signature' => base64_encode($signature),
+                ])->assertOk()->assertJsonPath('data.features', $index === 2 ? ['Aggressive'] : []);
+            }
+        }
+
+        $this->assertDatabaseCount('device_bindings', 3);
+        $this->assertDatabaseCount('otp_challenges', 0);
+        $this->assertSame(3, Report::query()->distinct()->count('reporter_hash'));
+        $this->assertCount(3, $this->smsSender->messages);
+        foreach (self::TESTER_PHONES as $index => $phone) {
+            $this->assertSame($devices[$index][1], DeviceBinding::query()->where('phone_number', $phone)->sole()->public_key);
+        }
+        Http::assertNothingSent();
     }
 
     public function test_a_different_phone_cannot_use_owner_enrollment(): void
