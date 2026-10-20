@@ -1,6 +1,85 @@
 # Plugin and Module Integration Map
 
-**Inspected:** 2026-10-03 21:06:48 CEST (UTC+02:00)
+**Inspected:** 2026-10-20 21:54:04 CEST (UTC+02:00), verified local clock; owner-phone allowlist/OTP/binding/report/query boundaries, SMS adapter recipient contract and existing hosted routing/request evidence. Local baseline `d0f25a30892cc240ed1b40629faa575cea16348f` plus uncommitted allowlist extension. Earlier deployment evidence below retains its original scope/date.
+
+## Current closed-beta direction - existing phone screen with a private allowlist
+
+Owner selected the existing owner-phone input and SMS OTP flow for the owner and
+two testers, each receiving the code on their own phone. The earlier local-only
+invitation design was superseded and removed completely: no invitation endpoint,
+command, model, migration, feature flag, extra identity or new client screen.
+
+[OtpChallengeService::issueForOwner](../../app/Services/OtpChallengeService.php)
+now accepts a private comma-separated `OWNER_PHONE_NUMBERS` list from
+[security configuration](../../config/security.php) and the blank
+[example](../../.env.example). `OWNER_ENROLLMENT_ENABLED=false` remains the
+default. A nonempty list supersedes `OWNER_PHONE_NUMBER`; unset/exactly empty
+list preserves legacy single-number behavior. Entry-edge whitespace is trimmed;
+all entries must be canonical E.164. Malformed/non-string configuration fails
+closed before any SMS reservation, with the existing sanitized error-level 503.
+Disabled/non-eligible requests retain 403 `owner_enrollment_unavailable`.
+
+The existing [request](../../app/Http/Requests/Auth/InitiateOwnerAuthRequest.php),
+[controller](../../app/Http/Controllers/Api/Auth/InitiateOwnerAuthController.php)
+and [route](../../routes/api.php) are unchanged:
+`POST /api/auth/owner/initiate`, `phone_number`, shared global/initiation IP
+limiters, 201 `auth.sms_initiated` with challenge/masked recipient/expiry and
+object metadata. No new container binding, queue, provider or external dependency.
+After exact membership validation, synchronous SMS goes to the submitted allowed
+phone through the existing `SmsSender` binding, never to a common first entry.
+The inspected [SMSTools adapter](../../app/Services/SmstoolsSmsSender.php) puts that
+argument in `data.recipients[0].phonenr` and checks acceptance for the same
+recipient; this is source inspection, not a provider call or delivery check.
+Normal shared SMS budgets, challenge locking/replacement/expiry and no-refund
+unknown-send handling are unchanged.
+
+[Verification](../../app/Services/AuthVerificationService.php) and
+[signatures](../../app/Services/DeviceSignatureService.php) are unchanged. The
+existing unique-phone `otp_challenges` and `device_bindings` tables keep each
+tester independent. No seeded binding or migration: OTP and possession of the
+device private key are still required. Same-phone re-enrollment replaces only
+that phone's key. Removing an allowed number or disabling issuance does not
+revoke issued challenges or existing verified bindings.
+
+[Report submission](../../app/Services/ReportSubmissionService.php) retains the
+bound-phone hash identity, duplicate rules and threshold three per target/feature;
+[signed queries](../../app/Services/BlacklistQueryService.php) still expose only
+stored Level 2 features. Three individually verified testers can contribute
+independently, with no invented reports or changed thresholds.
+
+The [API contract](./BACKEND_API_CONTRACT.md#post-apiauthownerinitiate) and
+[README](../../README.md#closed-beta-reuse-the-existing-phone-screen) explain
+reuse of the installed phone/OTP screens and unchanged signed verification.
+Client label "Beta tester phone" is optional; the beta base must become
+`https://beta.zafo-forum.sk/api/`. Client files, hosted settings, private
+allowlist and SMS activation are not changed here. Existing key/Android recovery
+and actual delivery are not qualified by local tests.
+
+Read-only hosted checks on October 20, 20:57-21:02 CEST: the client's
+`bcuszlr92817.zafo-forum.sk` entrypoint still points to revision `a1e36535...`,
+with inspected source anchors matching HEAD, no owner route and no standard
+config/route caches. Beta points to release `934bb9d2-20261017`, matching inspected
+local source anchors, with directory deny-all, owner disabled/no configured owner
+phone and declared log-only SMS. Both on-disk thresholds are three; these are not
+all-worker/FPM attestations. Existing access records for October 20 show three
+owner-initiation 404s and eight blacklist-check 200s on the client hostname,
+plus ad initiation/verification success statuses. Response Content-Type/bodies,
+the requesting device and ringing-versus-manual origin are not established.
+Target-specific database inspection was explicitly deferred; no current counts
+or Level 2 claim. No new HTTP request, DB access, SMS, deployment or settings change.
+
+Local isolated allowlist and affected auth/report/query tests pass
+**111 tests / 946 assertions** (PHP 8.4.12, in-memory SQLite, mocked SMS/portal and
+stray-network prevention). [Owner-route tests](../../tests/Feature/Auth/InitiateOwnerAuthTest.php)
+cover fail-closed malformed lists, precedence/legacy fallback, exact independent
+recipients, resend isolation, three signed phone bindings, replay rejection and
+ordinary reporter identities/duplicates/thresholds/queries, alongside existing
+auth regressions. No real sends or phones in test fixtures, no hosted activation
+or genuine concurrency/Android execution established.
+Scoped Pint and `git diff --check` pass. Shared report/query/signature/route/console
+files match baseline again after removal of the invitation implementation.
+
+## Historical October 17 deployment evidence
 
 **Updated:** 2026-10-17 14:47:07 CEST (UTC+02:00), verified local clock for owner-approved documentation-only publication of saved post-deployment evidence. Documentation baseline main/local github/main `ed3e4b084ab5177e51d879019a3a15d653bf0d7a`; deployed candidate remains `934bb9d2d8f91467e738ed27934e8782ed4ab353`, source tree `6f5588bb4e4135eb82b5dec6b024c062953b75f7`. Executed deployment closeout was verified at 14:32:07, with no new hosted action in this publication. Local inspection covers auth/signature/query/report/shared abuse boundaries and production autoload; earlier 80 targeted auth tests / 614 assertions and scoped Pint retain their scope. Earlier October 16 migration/runtime/FPM findings retain their original candidate/timestamps/scopes, not reassigned to this new revision. Only this map/deployment plan are being published; ignored handoff/editor files stay outside Git.
 
