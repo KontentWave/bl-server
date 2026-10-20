@@ -2,7 +2,64 @@
 
 **Recorded:** 2026-10-09 20:49:03 CEST (UTC+02:00), verified local time before this documentation batch.
 
-**Disposition:** PRIVATE CONFIGURATION ACTIVE; bounded loopback and real HTTPS/FPM checks passed. Beta remains closed/no-send; BETA-BACKEND-001 and BETA-SMS-001 remain OPEN/BLOCKED.
+**Disposition, updated 2026-10-20 22:15:36 CEST (UTC+02:00), verified local clock:** beta phone enrollment activated for the owner's private three-number allowlist, using SMSTools and the existing phone/OTP screens. Public beta API is accessible. Client URL/build/install and actual SMS/device qualification remain outstanding; no delivery or overall readiness claim. Older closed/no-send statements below are historical and superseded only within this explicitly approved activation scope.
+
+## October 20 - allowlisted phone beta activation
+
+Owner authorized publication and beta deployment/private configuration/SMS
+activation. [PR #22](https://github.com/KontentWave/bl-server/pull/22), reviewed
+head `2514566bc534df0cead552d248ad75d1df9fe3c5`, merged at 20:01:17 UTC as
+`8d98219a06c932fd966d761a3159135832331bbd`; pulled main/github-main and exact
+reviewed/merge tree `fe574339922bd46165888a8bb13824f6bdd7aa0a` verified. No
+bypass; CLEAN/mergeable with no checks listed, not CI evidence. Source validation:
+111 tests / 946 assertions, scoped Pint and whitespace passed; seven files, no
+real recipients/credentials/ignored handoffs in Git, co-author trailer present.
+
+Host result 20:09:04 UTC `PASS_BETA_ACTIVATED`: new private release
+`~/apps/bl-beta/releases/8d98219a-20261020/app/`, bundle SHA-256
+`cc73b7662673a619f70f614ffbbc88e672646976e32cae1f70ae103e9fba8ba0`.
+Existing vendor copied unchanged; same lock SHA-256
+`4374bada085a68ad96a86e6e2da0b8e1a9e81cc404fb261609e2ec19a8f58c00`.
+Archive inventory honors `.github export-ignore`; an initial overbroad inventory
+stopped before configuration, then corrected/exported inventory passed. No
+dependency downloads, Composer scripts/plugins or autoload regeneration.
+
+Private `.env` preserves existing beta APP_KEY/database/cache/budgets/unrelated
+settings. Only beta URL, enabled owner issuance/private three-phone allowlist,
+SMSTools adapter/key/sender/expected endpoint/timeouts, OTP logging off and blank
+development recipient override are set for this activation. Provider credentials
+and sender reused privately from the working old installation, without changing
+that installation. No phone/key/credential values or fingerprints recorded here.
+Portal remains fixture/no directory; this beta uses phone entry, not ad scraping.
+
+Production/debug-off PHP 8.5.10 native kernel verified configured list count,
+adapter binding, threshold three, shared database limiter and key roundtrip.
+Health200, missing-owner-input422, non-eligible synthetic phone403 and unsigned
+query401 passed without SMS; business and migration row counts unchanged.
+No schema migration/seed/key generation/cache flush or counter refund. Smoke
+limiter/log effects were retained conservatively.
+
+After native success, atomically switched public index to the new release and
+replaced `Require all denied` with the candidate's standard public rewrites.
+Public HTTPS at 20:09:41 UTC passed health200 and JSON 422/403/401 with object
+metadata, normal certificate/hostname verification, no redirect/proxy bypass.
+No valid initiation or SMS dispatch was attempted. This verifies availability
+and error contracts, not actual recipient delivery, enrollment or Call Shield.
+
+Previous `934bb9d2-20261017` release/private settings remain available; no old
+site modification or data deletion. Uploaded helper/private input/archive/
+inventory removed. Any later hold can restore directory denial without deleting
+data or resetting budgets; returning to old log-only/disabled settings is not a
+successful live-enrollment state. Existing non-TLS/shared-filesystem findings
+remain unchanged, not implicitly remediated or requalified by this deployment.
+No Android checkout exists here: client must change its beta base URL while
+preserving existing uncommitted beta.2 work and device keys.
+Independent read-only closeout at 20:15:40 UTC confirms active target/rewrites,
+release 700/environment 600, three allowed entries, key preservation/provider
+key equality without disclosure, all 6,824 vendor files byte-identical, standard
+config cache absent and task input/helper cleanup. Local path links (293 across
+map/plan/ignored handoff) and whitespace pass. Documentation publication does not
+redeploy or dispatch SMS.
 
 **Current release update, 2026-10-17 14:35:39 CEST (UTC+02:00), verified local clock: PASS_CLOSED_OWNER_DEPLOYMENT.** Owner-approved [PR #19](https://github.com/KontentWave/bl-server/pull/19) merged reviewed head `bef6c5fab327b997cd2725942c28ae46446ca1aa` into main `934bb9d2d8f91467e738ed27934e8782ed4ab353`, tree `6f5588bb4e4135eb82b5dec6b024c062953b75f7`; remote/reviewed/merge tree identity verified, no bypass. Returned to main. Exact candidate deployed locally timed 14:31:29-14:31:34 CEST; host PHP reports 12:31:34-12:31:36 UTC (distinct clocks). New private release `~/apps/bl-beta/releases/934bb9d2-20261017/app/` is the public index target; previous release retained. Bundle SHA-256 `882a0242870674268b0c03d6c7049baf35d56eb0049026d688897411071cbf21` / 5,012,878 bytes. Unchanged lock/dependencies: verified 83 production packages reused without download, 31 dev packages excluded; only production classmap/static autoload regenerated with scripts/plugins disabled.
 
