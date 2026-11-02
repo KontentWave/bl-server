@@ -2,7 +2,105 @@
 
 **Recorded:** 2026-10-09 20:49:03 CEST (UTC+02:00), verified local time before this documentation batch.
 
-**Disposition, updated 2026-10-20 22:15:36 CEST (UTC+02:00), verified local clock:** beta phone enrollment activated for the owner's private three-number allowlist, using SMSTools and the existing phone/OTP screens. Public beta API is accessible. Client URL/build/install and actual SMS/device qualification remain outstanding; no delivery or overall readiness claim. Older closed/no-send statements below are historical and superseded only within this explicitly approved activation scope.
+**Acceptance update, 2026-10-29 21:57:41 CET (UTC+01:00), verified local clock:**
+owner reports tester submitted her ad URL, received SMS OTP, verified it and
+was onboarded. Live ad onboarding passed on owner-reported/device evidence,
+not independent provider/database inspection. No redundant SMS/enrollment.
+Ordinary signed BlackList query/report, persistence and ad-off weekend checks
+remain separate; preserve the successful enrollment. Incoming-call/overlay
+qualification on this older phone is out of scope. No hosted/configuration/SMS
+operation or publication in this update; last verified live configuration remains
+enabled without a fixed cutoff as requested. This is not overall beta certification.
+
+**Current status, 2026-10-29 21:07:07 CET (UTC+01:00), verified local clock:**
+owner reported the ad reactivated/requested retry, resuming approved preparation
+with no fixed cutoff. Guarded Webshare fetch passed first attempt at 20:06:52 UTC,
+HTTP200/verified TLS/no redirects/one expected recipient match. No SMS.
+Ingress briefly paused/403, reversible portal/proxy-only environment activation
+at 20:07:00 UTC; fresh native effective bindings verified, then health200 and
+public no-send JSON422 checks passed. Ad onboarding now ENABLED until owner pause,
+not an automatic ten-minute window. Existing public budgets/risk acceptance
+remain; no hard one-send cap or unattended monitoring.
+Closeout 20:07:09 UTC verified 94 source files and unchanged protected settings/
+budgets/business counts; no source deployment, migrations, data/key/binding
+reset or publication. Private original environment retained mode600 outside
+public root, temporary helpers removed. Existing owner pause control blocks
+new beta HTTP, not accepted/in-flight SMS. Tester can submit once and enter
+received OTP privately; subsequent owner-reported acceptance is recorded above.
+
+**Latest status, 2026-10-29 17:47:38 CET (UTC+01:00), verified local clock:**
+owner requested advance preparation with no fixed cutoff; intended activation
+would remain available until owner pause, retaining shared budgets and their
+public-endpoint exposure. Three approved current Webshare preflight fetches
+returned HTTP 200/TLS verified/no redirects but no supported contact. One
+separately approved diagnostic fetch identified the portal's expired-ad notice,
+not an active contact page. Recipient match gate did not pass; no activation
+or SMS. Native source/configuration and budgets/business counts unchanged at
+16:47:38 UTC; last public health200. Renew/reactivate the ad before current
+contact verification/activation. Private page/unused helpers removed, private
+owner-only test input retained outside Git. Local 193 tests / 1,136
+assertions and synthetic environment round-trip checks passed. October 24
+success below is historical, not tonight's readiness evidence.
+
+**Disposition, updated 2026-10-24 20:14:50 CEST (UTC+02:00), verified local clock:** approved Webshare-backed genuine extraction passed on attempt one, matching the private intended recipient. Owner then paused before SMS because the recipient was unavailable. No live window, persistent environment change or SMS/challenge/binding write. Final hosted closeout at 18:14:03 UTC verified all 94 runtime files, unchanged budgets/business counts, production/debug-off, fixture/no directory, enabled private phone allowlist, SMSTools/OTP-log-off, proxy/probes off and public health200. Private input/unused helpers removed; reusable pause controls and sanitized proof retained. Next is recipient readiness for supervised SMS/OTP/signed verification/query/report, not hosting escalation, a client rebuild or automatic replay.
+
+## October 24 - approved supervised ad slice
+
+**Executed Webshare follow-up / paused:** conditional option 1 approval covered
+private reuse of existing credentials, HTTP proxy-hop risk, at most three no-SMS
+fetches and one client initiation/SMS. Existing local credentials were available.
+At 18:02:49 UTC, the actual guarded HTTP adapter fetched the genuine ad via
+Webshare with HTTP 200 in 2.19138 seconds, verified target TLS/no redirects and
+one supported contact matching the expected recipient. Only one fetch used;
+settings stayed process-local. Recipient availability then stopped the SMS step
+at the owner's request. No live window opened. Environment escaping, exact
+restoration and drift refusal passed synthetic checks; unused live-window
+helpers/private input were removed. The existing pause control remains usable.
+One preflight success is not a reliability claim for future rotating exits;
+resume with current recipient readiness/ad contact, not an unattended send.
+
+**Follow-up, 2026-10-24 19:49:16 CEST (UTC+02:00), verified local clock:** owner
+reports Amaterky anti-scraping and existing Webshare pool use with varying failed
+exits. Local inspection confirms the rotating-endpoint integration already
+documented in [ADR 4](./ADRs/4_production_scraper_hardening.md). This supersedes
+hosting-support escalation as the immediate next step, not the recorded direct
+timeout evidence or stop. Prepare a separately approved, small finite
+proxy-backed qualification through the actual guarded ad adapter; no pool-wide
+probe/retry loop, target TLS/pinning relaxation, automatic OTP replay or new
+client/schema needed. Verify private working endpoint details and proxy-hop
+credential protection; current beta proxy enablement is not implied. Keep phone
+enrollment, budgets and pause/unknown-send rules unchanged. No new hosted
+operation or test was executed for this local documentation follow-up.
+
+Local main/cached github-main is `66457ccf47f3142bcfa13dfe4c2cffebaa368358`;
+inspected runtime/config/schema/dependencies/tests match recorded deployment
+`8d98219a06c932fd966d761a3159135832331bbd`. Existing HTTP adapter/extractors
+appear sufficient: no source deployment, migration, client build, key/binding
+reset or new authentication model proposed. Local isolated/fake-network validation
+passed 193 tests / 1,136 assertions. Details and source references are in the
+[current integration scope](./plugin_integration_map.md#current-ad-flow-qualification---approved-supervised-slice).
+
+The earlier direct-slice approval (now stopped) covered current-host verification, reversible
+fixture-to-HTTP/direct-no-proxy configuration, owner pause-control qualification,
+at most two GETs of one privately selected consenting supported ad (preflight
+comparison plus initiation), one SMS attempt and owner-operated OTP/signed
+verification/query/report. Maximum ten-minute HTTP window; restore fixture/no
+directory immediately after initiation or stop. Keep enabled phone allowlist,
+production/debug-off, SMSTools, OTP-log-off, application key/data/stores/budgets.
+No automatic retry/resend or new proxy/redirect/TLS workaround.
+
+Owner emergency pause uses the saved actual beta document-root `.htaccess`:
+replace with `Require all denied`, verify public denial, deliberately restore
+the saved file only when safe. This pauses all new beta HTTP, not in-flight/CLI
+work or SMS already accepted by the provider; prove owner access before sending.
+Unknown acceptance/delivery stops the slice without replay/refund/reset/restore.
+The manual one-send allowance is not a hard public cap: ad initiation is public
+and outside the phone allowlist, subject to actual shared budgets. Inspect
+limits/headroom first; obtain explicit bounded acceptance of short-window abuse
+exposure, historical non-TLS DB/shared-account filesystem exposure and untested
+recovery (accepted for this slice, not remediated). No new enterprise coordinator/drain proof is a prerequisite proposed
+for these two testers. This narrow package supersedes separate per-command
+approval sequencing below; it does not authorize unrestricted operation or Git publication.
 
 ## October 20 - allowlisted phone beta activation
 

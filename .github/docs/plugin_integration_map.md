@@ -1,6 +1,292 @@
 # Plugin and Module Integration Map
 
-**Inspected:** 2026-10-20 22:15:36 CEST (UTC+02:00), verified local clock; published owner-phone allowlist, activated beta runtime and no-send public HTTPS checks. Activation/source baseline and deployed candidate `8d98219a06c932fd966d761a3159135832331bbd`, reviewed source tree `fe574339922bd46165888a8bb13824f6bdd7aa0a`. Documentation-only publication may advance main without redeploying. Earlier deployment evidence below retains its original scope/date.
+**Updated:** 2026-10-29 21:57:41 CET (UTC+01:00), verified local clock; recording owner-reported successful live ad/SMS/OTP onboarding. Last executed hosted inspection/activation is October 29 20:07:09 UTC below, including 94 runtime files matching deployment `8d98219a06c932fd966d761a3159135832331bbd`. Local main/cached github-main baseline `66457ccf47f3142bcfa13dfe4c2cffebaa368358`; no new hosted operation, source deployment, Git remote refresh or publication for this update.
+
+## Current ad-flow qualification - approved supervised slice
+
+### November 2 - intended renewal is absent from the current contract
+
+**Inspected:** 2026-11-02 18:59:36 CET (UTC+01:00), verified local clock; local
+baseline `66457ccf47f3142bcfa13dfe4c2cffebaa368358`, no hosted/client execution.
+Owner reports unchanged client timestamp and specifies desired 24-hour quiet
+ad-based renewal, overdue renewal on return and offboarding on ad deactivation.
+This is a newly clarified requirement, not existing implemented behavior.
+
+- [API routes](../../routes/api.php) have no renewal/revocation endpoint;
+  [console scheduling](../../routes/console.php) only optionally probes proxies.
+- [Binding schema](../../database/migrations/2026_03_31_123100_create_device_bindings_table.php)
+  and [model](../../app/Models/DeviceBinding.php) hold phone, public key,
+  verification time and normal timestamps, not the ad/lease/revocation lifecycle.
+- [OTP verification](../../app/Services/AuthVerificationService.php) alone
+  sets `verified_at` on successful binding and deletes the challenge carrying
+  the ad URL; [response](../../app/Http/Controllers/Api/Auth/VerifyAuthController.php)
+  returns that timestamp. Initial [issuance](../../app/Services/OtpChallengeService.php)
+  scrapes before SMS, with a 15-minute OTP expiry, not a 24-hour binding lease.
+- [Queries](../../app/Services/BlacklistQueryService.php) and
+  [reports](../../app/Services/ReportSubmissionService.php) authorize by
+  stored key/signature without age/ad checks or timestamp refresh. No automated
+  ad-off revocation or resume-after-poweroff renewal exists in this path.
+
+Earlier ad-off continuity guidance correctly described current implementation,
+but does not satisfy this clarified policy. Preserve the successful onboarding
+evidence without treating it as renewal acceptance. A coordinated contract/
+lifecycle change is needed; do not silently implement daily SMS, revoke on a
+transient proxy failure or impose the ad policy on phone-only enrollment.
+Quiet renewal transport (signed HTTPS versus daily SMS), overdue access rules,
+confirmed-inactive versus unavailable handling and phone-only policy remain
+design decisions. No runtime/source changes, SMS or new tests in this
+documentation-only investigation.
+
+**Owner-reported pass, recorded 21:57:41 CET:** tester submitted the ad URL,
+received the actual SMS OTP, verified it and was onboarded. Accept this as
+owner-reported/device acceptance of live ad onboarding, separate from executed
+server preflight evidence; no independent provider/challenge/binding inspection
+or new SMS in this update. Do not repeat successful enrollment for documentation.
+Ordinary signed BlackList query/report, persistence and planned ad-off weekend
+use remain separate checks. Keep the enrollment; incoming-call/overlay tests
+are outside this older-phone scope. Last verified live configuration stays
+enabled without a fixed cutoff at owner's request, not a new pause decision.
+
+**Current: live ad onboarding enabled, 2026-10-29 21:07:07 CET (UTC+01:00),**
+verified local clock. Owner confirmed ad reactivation/requested retry, resuming
+approved preparation with no fixed cutoff. At 20:06:52 UTC, guarded
+[HTTP adapter](../../app/Services/HttpEscortPortalClient.php) via Webshare
+returned HTTP200 in 1.93056 seconds, verified TLS/no redirects, one supported
+contact matching private expectation on first fetch. At 20:07:00 UTC, ingress
+paused/403, environment atomically updated and fresh native bindings verified,
+then normal rewrites restored/health200. `ESCORT_PORTAL_DRIVER=http`,
+`SCRAPER_PROXY_DRIVER=webshare_rotating`, private endpoint/credentials, 5-second
+proxy connect and 10-second portal timeout are now persistent beta settings.
+No automatic cutoff/monitoring. Scheduled probes off; blank override/legacy
+proxy; existing phone enrollment/three-entry list, SMSTools, OTP-log-off,
+production/debug-off, APP_KEY, store/prefix/budgets, data and threshold preserved.
+Parsed environment equality verifies no unrelated settings change.
+
+Closeout 20:07:09 UTC: 94 runtime files match recorded deployment, zero active
+global attempts (20/hour, 100/day), zero challenges, three bindings, one client,
+three reports, one feature-level row, thirteen migrations. Public empty-input
+initiation/query both expected JSON422, no send. No source deployment,
+migration or Git publication. Private original environment retained mode600
+outside public root; temporary local/remote helpers removed, sanitized proof kept.
+Existing owner pause helper remains available, affecting all new HTTP but not
+in-flight/provider-accepted SMS. At activation, receipt/verification/query were
+unqualified; the later owner report confirms receipt/onboarding, not query/report.
+Rotating exit/ad
+changes can fail a later fetch; ongoing public budget exposure accepted by owner,
+not a hard one-send limit or overall readiness claim.
+
+**Current October 29 operation, 17:47:38 CET (UTC+01:00), verified local clock:**
+owner requests advance preparation and no fixed cutoff; intended live ad access
+would stay on until owner pause, subject to unchanged budgets/public endpoint
+exposure, not a hard one-SMS cap. Activation remains gated on a genuine expected
+contact match. Three new guarded Webshare fetches returned HTTP 200/verified
+TLS/no redirects, each with no supported contact. Owner approved one additional
+diagnostic fetch, again HTTP 200; offline inspection identified the portal's
+"Vypršala platnosť" (ad expired) heading/notice, no contact selectors or advertised
+number. No match/SMS/configuration activation. This ad-state failure does not
+justify a parser fallback, recipient substitution or proxy/TLS workaround.
+Renew/reactivate the ad before another contact qualification and activation;
+four fetches total, no automatic continuation.
+Hosted closeout at 16:47:38 UTC reverified all 94 runtime files, unchanged
+fixture/no-directory/proxy-off, valid enabled three-phone allowlist,
+SMSTools/OTP-log-off/no override/probes off/threshold three and public health200.
+Global budgets remain 20/hour and 100/day with zero active recorded attempts;
+business counts unchanged (zero challenges, three bindings, one client,
+three reports, one feature-level row, thirteen migrations).
+Fresh local regression validation: 193 tests / 1,136 assertions plus synthetic
+environment escaping/exact-restore/drift refusal. No source deployment or Git
+publication. Saved private page and unused local/remote helpers removed;
+requested private ad/recipient input retained owner-only outside Git.
+The [extractor](../../app/Scraper/Portals/AmaterkySkPhoneExtractor.php) explicitly
+classifies the recognized advertiser-disabled heading, while this expired page
+has no supported contact and therefore yields the existing missing-phone error
+before SMS. Neither state revokes an already verified device binding.
+The earlier success below is dated October 24, not current
+qualification of the newly supplied private ad/contact.
+
+**October 29 coordination / ad-off boundary:** 2026-10-29 17:19:08 CET
+(UTC+01:00), verified local clock; local source inspection only, no renewed
+hosted evidence. Owner plans onboarding October 29, ordinary use October 30,
+ad-off October 30 evening through the weekend and reactivation next week.
+Personal ad/contact supplied in conversation is not retained here, and is not
+assumed identical to the earlier privately qualified input.
+[Signed queries](../../app/Services/BlacklistQueryService.php) and
+[reports](../../app/Services/ReportSubmissionService.php) authorize by stored
+device binding/signature without fetching the ad or checking its active status.
+Ad deactivation alone therefore does not revoke existing authorization.
+[Amaterky extraction](../../app/Scraper/Portals/AmaterkySkPhoneExtractor.php)
+rejects the recognized disabled-ad heading during fresh onboarding, before SMS.
+Ordinary weekend app access is not a fresh ad/OTP enrollment test; preserve a
+working enrollment unless a separate reset/re-enrollment test is intended.
+Owner clarified: reset once tonight on the installed app, enroll while the ad is
+on, then preserve enrollment for ordinary BlackList availability checks while
+the ad is off. No weekend reset/new SMS planned. Older Android incoming-call
+capture and system-blocked overlay are outside this tester's current scope;
+second-phone overlay testing is tentative next week or the following week.
+Actual client recovery and hosted ad-off behavior remain unverified. Last
+effective portal setting observed October 24 is fixture/no directory, not
+live-onboarding readiness for tonight.
+
+**Current result: genuine extraction qualified; SMS/OTP step paused.** Owner
+conditionally approved option 1 if existing Webshare credentials were available.
+Private local configuration contained a complete endpoint/credential pair
+(HTTP proxy hop; bounded credential-hop risk accepted in that option).
+At 18:02:49 UTC, the actual safeguarded HTTP adapter fetched the consenting ad
+through Webshare on attempt one of the maximum three: HTTP 200 in 2.19138 seconds,
+completed target TLS/verification, no redirect, one supported contact matching
+the privately supplied expected recipient. No raw page, URL, recipient or
+credential in shared output; no pool-wide scan or exit-IP identity claim.
+This is hosted extraction evidence, not SMS delivery or a proxy-reliability rate.
+
+Owner was not with the recipient and explicitly paused the SMS step.
+The live window was never opened: no persistent portal/proxy environment change,
+SMS reservation, challenge or binding write. Prepared nine-minute restoration
+controls passed synthetic escaping/exact-restore/drift-refusal checks but were
+not executed on beta; unused helpers and private ad/recipient input were removed.
+Sanitized session proof and the existing owner pause control remain.
+Closeout at 18:14:03 UTC verified source identity, production/debug-off,
+fixture/no directory, private three-phone enrollment enabled, SMSTools/OTP-log-off,
+blank override, persistent proxy/probes off, normal rewrites and public health200.
+Global limits still 20/hour and 100/day with zero active recorded attempts;
+aggregate business counts unchanged. Next owner action is recipient readiness
+for the remaining single initiation/SMS/OTP/signed verify/query/report step,
+not a client rebuild or hosting-support prerequisite. No automatic resumption.
+
+### Earlier direct-transport attempt and Webshare clarification
+
+Owner approved the bounded operational slice and stated risks after local
+inspection. Hosted read at 17:20:00 UTC verified the expected beta index target
+and all 94 inventoried runtime files, unchanged lock, PHP 8.5.12/cURL pinning,
+production/debug-off, valid enabled three-phone allowlist, actual SMSTools
+binding/expected endpoint/key presence, OTP logging off, fixture/no directory,
+blank override, no proxy/probes, database limiter and report threshold three.
+Existing global limits are 20/hour and 100/day, recipient limits 3/hour and 5/day,
+cooldown 60 seconds; no active recorded global attempts. These are current
+counter observations, not proof of no provider-side historical expenditure.
+Read counters directly without expired-cache cleanup or reservation/reset.
+Business counts: zero challenges, three bindings, one client, three reports,
+one feature-level row, thirteen migrations; no target/feature attribution.
+Owner saved ad/expected contact privately, confirmed consent and operated the
+prepared pause helper; independent public HTTPS check returned 403. The single
+CLI no-SMS preflight then failed during direct fetch with
+`EscortPortalTimeoutException`, before a page/contact comparison was available.
+The adapter maps any Laravel `ConnectionException` to that class and discarded
+the first attempt's native transport context. After explicit diagnostic and
+conditional-completion approval, one further CLI fetch used existing HTTP
+failure/statistics events, without changing application source or safeguards.
+At 17:39:21 UTC it failed with native cURL 28 after 9.999886 seconds:
+HTTP status 0, connect/appconnect/start-transfer times 0, zero downloaded bytes,
+no connected address or redirect. This establishes a connection-stage timeout,
+not a certificate-validation or page-parser failure; underlying hosting
+egress/routing/filtering, selected destination or portal availability remains
+unresolved. `ssl_verify_result=0` without a handshake does not qualify TLS.
+No further fetch, proxy workaround, timeout increase or TLS change.
+
+Post-stop hosted read at 17:40:24 UTC reverified all 94 files, same effective
+fixture/no-directory/no-override configuration, zero active global attempts and
+unchanged aggregate business counts. Saved public rewrites are restored;
+independent HTTPS health returned 200. Phone enrollment stays enabled/unchanged.
+Total: two authorized fetch attempts, no returned HTML/recipient qualification,
+no SMS/challenge/binding write, persistent portal switch or source deployment.
+Private local ad/recipient input and temporary local/remote helpers were removed;
+only sanitized session diagnostics and the reusable owner pause helper with
+private saved/deny rewrites remain. Pause affects all new HTTP, not accepted SMS.
+Stop stands; unused SMS authority is not automatic permission to replay.
+
+**Owner clarification / corrected next step:** owner reports Amaterky
+anti-scraping and existing use of a 1,000-proxy Webshare pool with varying failed
+exit IPs. This is owner-reported operational experience, not proof the observed
+timeouts were caused by blocking. Hosting fault is not established, and support
+escalation is not the first prerequisite. [ADR 4](./ADRs/4_production_scraper_hardening.md)
+already records the intended single rotating-endpoint Webshare integration;
+its historical live results do not qualify current beta.
+[RotatingProxyConfig](../../app/Scraper/Proxy/RotatingProxyConfig.php) consumes
+`SCRAPER_PROXY_DRIVER`, scheme/host/port/username/password and connect timeout.
+The [HTTP adapter](../../app/Services/HttpEscortPortalClient.php) uses that
+endpoint while retaining URL/public-address pinning, TLS verification and no
+redirects. Its overall timeout is `ESCORT_PORTAL_TIMEOUT`, not
+`SCRAPER_PROXY_TIMEOUT`; the latter is consumed by the separate probe service.
+The adapter makes one fetch with no automatic rotation/retry loop or per-exit
+inventory. A good preflight exit does not guarantee the next client fetch works.
+
+That Webshare-backed slice was subsequently approved; the current result above
+records one successful no-SMS fetch and the owner's pause before initiation.
+Resume only with the recipient available and a current private ad/contact check,
+not by automatically spending the unused SMS allowance. Do not scan the whole pool,
+add unbounded retries or retry the complete OTP issuance operation.
+Keep phone enrollment/budgets unchanged and scheduled probes off. Check proxy
+hop security separately from target TLS; do not assume an HTTP proxy connection
+protects proxy credentials in transit. The existing
+[probe service](../../app/Scraper/Proxy/ProxyProbeService.php) is not equivalent
+to the production fetch: it permits general valid URLs/default redirects,
+treats 3xx as success, and persists target URL/raw exception text and optional
+body previews. Prefer the safeguarded ad adapter with sanitized diagnostics,
+not an unqualified probe loop or raw telemetry in shared documentation.
+
+The October 23 client attachment and owner report supersede outstanding
+build/install/onboarding/call-test statements in the historical records below:
+installed Kotlin/Compose `bl.zafo`, code 3 / beta.3 uses the beta URL; owner
+reports successful onboarding and personally attended Level 2 Aggressive warning
+on one tester's device after three reporters. This is owner-observed/device
+evidence, not independently inspected database counts or universally fixed Waiting.
+Accepted call-UI/overlay limitations do not require repeating that test.
+
+No source, client, schema or authentication change is identified for a first
+bounded ad test. [Container binding](../../app/Providers/AppServiceProvider.php)
+already selects [HTTP transport](../../app/Services/HttpEscortPortalClient.php)
+for `ESCORT_PORTAL_DRIVER=http`. The completed initial attempt proposed
+fixture-to-HTTP configuration with direct HTTPS (`SCRAPER_PROXY_DRIVER=none`,
+blank `ESCORT_PORTAL_PROXY`); that transport choice is superseded for the next
+proposal by the Webshare clarification above. Keep probes off and no recipient override. Preserve the enabled
+phone allowlist, SMSTools, OTP logging off, APP_KEY, stores, budgets and data.
+Recheck effective beta settings and source before applying; historical proxy
+configuration is not evidence its current endpoint/credentials work on beta.
+
+[URL policy](../../app/Services/EscortAdUrlPolicy.php) permits HTTPS/443 only on
+`amaterky.sk`, `www.amaterky.sk`, `eurogirlsescort.com` and
+`www.eurogirlsescort.com`, rejects credentials/non-public DNS answers and pins a
+validated address. Transport verifies TLS and refuses redirects; use the final
+canonical supported URL, not a redirect/TLS workaround. cURL support is required.
+[Parser](../../app/Services/EscortAdHtmlParser.php) selects host-specific extractors,
+not generic page text. [Amaterky](../../app/Scraper/Portals/AmaterkySkPhoneExtractor.php)
+prefers contact tel, then SMS, then contact heading, rejecting disabled ads.
+[EuroGirlsEscort](../../app/Scraper/Portals/EuroGirlsEscortPhoneExtractor.php)
+uses contact attributes/decoded contact values, returning the first candidate;
+multiple contacts/social attributes are a concrete wrong-recipient risk.
+These selectors and normalization do not establish current page correctness.
+
+The initial direct-slice proposal below is historical, not resumed authority:
+before one owner-triggered initiation, privately select a consenting recipient
+controlling the ad contact and compare a no-SMS fetch/extraction to the expected
+number. Prefer one unambiguous SMS-capable contact; stop on mismatch, multiple
+conflicting contacts, blocked/changed markup or failed direct fetch. Proposal:
+at most two GETs of that one URL (preflight plus initiation), no retry/probe,
+one SMS attempt, no resend, at most ten minutes with HTTP enabled; restore
+fixture/no-directory immediately after initiation or on stop. Owner enters the
+received OTP privately; existing signed verify/query/report remain unchanged.
+Same-phone verification can replace that phone's binding key; do not promise key
+continuity from the client's owner-tested Reset onboarding action.
+
+The phone allowlist applies only to owner-phone issuance, not ad initiation.
+The public ad route can send to other extracted contacts within shared budgets;
+the one-send operator allowance is not an endpoint-wide cap. Review actual limits
+and remaining capacity without resetting counters. Owner accepted the stated
+short-window exposure, historical non-TLS DB/shared-account filesystem risks and
+untested recovery for this slice; those risks are not remediated. Do not extend
+that acceptance to unrestricted reopening or require a new coordinator.
+Owner-operated emergency pause: save beta's actual document-root `.htaccess`,
+replace it with `Require all denied`, verify public denial, restore the saved
+file only deliberately. Qualify owner access/control before sending. This pauses
+all new beta HTTP requests (phone/query/report too), not already-admitted work,
+CLI producers or provider-accepted SMS. Do not use log-SMS as a successful hold.
+Unknown acceptance/delivery means stop, preserve challenge/budget state and
+investigate privately without replay, refund, reset or database rollback.
+
+**Executed local evidence:** 193 tests / 1,136 assertions, PHP 8.4.12, isolated
+in-memory SQLite with fake SMS/mocked HTTP: HTTP/URL protections, both extractors,
+extraction job, SMSTools acceptance/failure, ad/allowlisted-phone auth, signed
+verification/report/query. VS Code runner found no PHP tests; direct existing
+PHPUnit runner passed. No live page, delivery or hosted-worker qualification.
 
 ## Current closed-beta direction - existing phone screen with a private allowlist
 
@@ -50,11 +336,13 @@ independently, with no invented reports or changed thresholds.
 The [API contract](./BACKEND_API_CONTRACT.md#post-apiauthownerinitiate) and
 [README](../../README.md#closed-beta-reuse-the-existing-phone-screen) explain
 reuse of the installed phone/OTP screens and unchanged signed verification.
-Client label "Beta tester phone" is optional; the beta base must become
-`https://beta.zafo-forum.sk/api/`. No Android checkout exists in this server
-workspace; the client URL/build/install is not changed. Preserve the client's
-existing uncommitted beta.2 work, app data and signing keys; do not substitute a
-clone of older published client source.
+Client label "Beta tester phone" is optional. The latest client handoff reports
+beta.3 installed with `https://beta.zafo-forum.sk/api/` and source published via
+client PR #15; the earlier uncommitted-source/build blocker is superseded.
+No Android checkout is inspected here and no new client build is needed for
+existing ad onboarding. Preserve app data/keys; use the owner-tested Reset
+onboarding action when needed, not Clear app data/uninstall. Its storage/key
+effects remain uninspected.
 
 **Publication and activation:** owner authorized branch/commit/push/PR merge/pull
 and beta deployment/configuration/SMS activation. [PR #22](https://github.com/KontentWave/bl-server/pull/22),
