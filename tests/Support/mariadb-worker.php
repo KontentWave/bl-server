@@ -1,7 +1,10 @@
 <?php
 
+use App\Contracts\EscortPortalClient;
 use App\Exceptions\ApiDomainException;
+use App\Services\AuthLifecycleService;
 use App\Services\AuthVerificationService;
+use App\Services\BlacklistQueryService;
 use App\Services\OtpChallengeService;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
@@ -28,6 +31,29 @@ try {
 
     $request = json_decode($input, true, flags: JSON_THROW_ON_ERROR);
     Carbon::setTestNow(Carbon::parse($request['now']));
+    $portal = new class($request['portal_html'], $request['pause_query'] === '@portal') implements EscortPortalClient
+    {
+        public int $calls = 0;
+
+        public function __construct(private readonly ?string $html, private readonly bool $pause) {}
+
+        public function fetchAdHtml(string $adUrl): ?string
+        {
+            $this->calls++;
+            if ($this->pause) {
+                echo json_encode(['event' => 'fetching', 'transaction_level' => DB::transactionLevel()], JSON_THROW_ON_ERROR)."\n";
+                flush();
+                if (fgets(STDIN) !== "release\n") {
+                    throw new RuntimeException('Timed out waiting for fixture portal release.');
+                }
+            }
+
+            return $this->html;
+        }
+    };
+    if ($request['operation'] === 'renew') {
+        $application->instance(EscortPortalClient::class, $portal);
+    }
     config()->set('security.resend_cooldown_seconds', 1);
     if ($request['operation'] === 'report') {
         config()->set('security.api_per_minute', 10000);
@@ -62,6 +88,15 @@ try {
 
     try {
         $result = match ($request['operation']) {
+            'renew', 'status' => (function () use ($request, $portal): array {
+                $result = app(AuthLifecycleService::class)->handle('auth.'.$request['operation'], $request['payload'], '192.0.2.1');
+                if (isset($result['error'])) {
+                    throw $result['error'];
+                }
+
+                return $result + ['portal_calls' => $portal->calls];
+            })(),
+            'query' => ['code' => 'blacklist.checked', 'data' => app(BlacklistQueryService::class)->check(...$request['payload'])],
             'verify' => (function () use ($request): array {
                 app(AuthVerificationService::class)->verify(...$request['payload']);
 

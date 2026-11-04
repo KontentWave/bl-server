@@ -2,12 +2,15 @@
 
 use App\Http\Controllers\Api\Auth\InitiateAuthController;
 use App\Http\Controllers\Api\Auth\InitiateOwnerAuthController;
+use App\Http\Controllers\Api\Auth\LifecycleController;
 use App\Http\Controllers\Api\Auth\VerifyAuthController;
 use App\Http\Controllers\Api\Blacklist\CheckBlacklistController;
 use App\Http\Controllers\Api\Report\StoreReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('throttle:api')->group(function (): void {
+    Route::post('/auth/status', LifecycleController::class);
+    Route::post('/auth/renew', LifecycleController::class);
     Route::post('/auth/initiate', InitiateAuthController::class)->middleware('throttle:auth-initiate');
     Route::post('/auth/owner/initiate', InitiateOwnerAuthController::class)->middleware('throttle:auth-initiate');
     Route::post('/auth/verify', VerifyAuthController::class)->middleware('throttle:auth-verify');

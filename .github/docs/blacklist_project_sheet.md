@@ -1,25 +1,25 @@
 # BlackList Project Sheet
 
-**Updated:** 2026-11-02 19:05:52 CET (UTC+01:00), verified local clock. Current backend source, recorded beta activation and owner-reported acceptance reconciled; quiet renewal recorded as required but not implemented.
+**Updated:** 2026-11-04 15:22:08 CET (UTC+01:00), verified local clock. Existing backend quiet-renewal/offboarding changes reviewed, corrected and locally qualified. Owner authorized the backend branch/commit/push/PR/merge/return-to-main publication workflow; hosted rollout is not executed in this publication slice.
 
 **Active client:** Native Android Kotlin/Compose in the client workspace's `legacy_android_kotlin/` directory. Its directory name is historical; it is the shipping client target.
 
-**Evidence boundary:** Local source baseline is main `66457ccf47f3142bcfa13dfe4c2cffebaa368358`; recorded deployed source is `8d98219a06c932fd966d761a3159135832331bbd`. The last executed hosted activation/closeout was October 29, not this November 2 documentation inspection. Client build/device outcomes are client/owner-reported unless explicitly stated otherwise. No new hosted access, scraping, SMS, application tests, deployment or publication performed for this update.
+**Evidence boundary:** Implementation baseline is main `a8d2d9a91ac11d55320df434fce68b82470d4de9`; last recorded deployed source is `8d98219a06c932fd966d761a3159135832331bbd`. Last executed hosted activation/closeout remains October 29. November 4 qualification executed isolated SQLite/MariaDB tests; source publication is a separate approved step. No hosted access, scraping, SMS, client distribution or deployment in this publication slice. Client build/device outcomes remain client/owner-reported.
 
 **References:** [API contract](./BACKEND_API_CONTRACT.md), [integration map](./plugin_integration_map.md), [deployment and rollback evidence](./BETA_DEPLOYMENT_CONFIGURATION_ROLLBACK_PLAN.md), [client handoff](./client-docs/CLIENT_TO_SERVER.md), [server handoff](./client-docs/SERVER_TO_CLIENT.md) and [owner decision package](./OWNER_PRIVACY_OPERATOR_DECISIONS_2026-10-06.md). The handoffs are local coordination records, not Git publication requirements. Phase 1-5 retain historical MVP context; the current status and renewal requirement below take precedence over older rollout assumptions.
 
-## Current Status - November 2
+## Current Status - November 4
 
 | Area | Completed work / evidence | Remaining limits |
 | --- | --- | --- |
 | Initial ad enrollment | Existing URL -> extracted recipient -> SMS OTP -> signed verification flow. On October 29, owner reported the tester received the actual OTP, verified it and was onboarded on beta. | This is owner-reported/device acceptance, not independent post-enrollment provider/database inspection or proof of renewal. |
-| Optional phone enrollment | Existing phone screen reused with a private three-phone allowlist; every eligible phone receives its own SMS and normal device binding. Invitations were discarded/removed. | Phone enrollment stays enabled. No administrator identity, seeded binding or new privileges. Its future renewal policy is undecided. |
+| Optional phone enrollment | Existing phone screen reused with a private allowlist; every eligible phone still completes SMS OTP and signed verification. | Phone-only bindings are renewal-exempt; allowlist changes are issuance-only. No new role, privilege or hosted setting change. |
 | Scraping and SMS | Amaterky and EuroGirlsEscort host-specific parsers implemented; Webshare rotating endpoint integrated. October 29 beta configuration enabled HTTP/Webshare and SMSTools, production/debug-off, OTP logging off, no recipient override, probes off. | Rotating exits and ad markup/state can fail; one successful fetch is not a pool reliability guarantee. No parser fallback to a supplied recipient. |
-| Signed reports/query | Implemented with bound-key authorization, duplicate protection, three distinct phone-based reporters per target/feature and Level 2-only results. | Report/query do not currently check enrollment age or ad activity. No 24-hour lease or automatic offboarding exists. |
-| Backend validation | October 29 isolated PHP 8.4.12/in-memory SQLite regression run: **193 tests / 1,136 assertions**, fake SMS/mocked HTTP. Synthetic configuration escaping/exact-restore/drift-refusal checks passed. Historical isolated MariaDB concurrency suites and hosted checks are linked below. | Not a new November 2 run, live delivery guarantee, all-worker concurrency certification or backup/recovery drill. |
-| Native client publication/install | Client handoff reports PR #15 merged, beta.3 (`bl.zafo`, versionCode 3 / `0.1.0-beta.3`) installed with the beta API URL. Client source-publication blocker resolved. | Client source, displayed verification timestamp and background scheduling are not freshly inspected in this backend workspace. |
+| Signed reports/query | Local lifecycle-aware selected-generation authorization preserves signatures, duplicates, threshold three and Level 2-only results. | Overdue access continues; only confirmed terminal state denies. Queries do not wait for renewal cache locks/scraping. Hosted lifecycle behavior is unqualified. |
+| Backend validation | November 4: **248 tests / 1,509 assertions** in memory SQLite; **24 tests / 690 assertions at each of two MariaDB isolation levels** in verified disposable containers. PHP syntax, changed/new PHP Pint and whitespace pass. | No live delivery, hosted worker parity, arbitrary-worker cancellation or backup/recovery claim. |
+| Native client publication/install | Client handoff reports renewal PR #17 merged at `70ed318491a13f4c1f7d45d5fd1c5ce29454ebc2`. Earlier beta.3 install evidence remains historical. | Published client source is not proof of installed renewal, Android job/Keystore execution or hosted API compatibility. No client distribution here. |
 | Incoming-call warning | Owner personally attended a successful real-call test before genuine ad onboarding: three reporters, one tester saw Level 2 Aggressive. Earlier physical-device MVP evidence remains historical. | Waiting is not universally diagnosed/fixed. System call UI can obscure warnings; overlay is blocked on one older phone. Combined post-ad-onboarding call test remains unreported, not grounds for redundant enrollment. |
-| Quiet renewal | Owner clarified the desired 24-hour ad-based lifecycle on November 2. | **Not implemented on the inspected server; client inspection pending.** See the dedicated requirement below. |
+| Quiet renewal | Implemented and locally qualified; partial-contact false offboarding and silent unexpected inspector failures corrected. Exact agreed wire contract retained. | Source publication does not establish hosted behavior. Legacy testers remain exempt without separately approved explicit ad enrollment; server-first hosted rollout pending. |
 
 ### Beta operation and acceptance boundary
 
@@ -33,7 +33,7 @@
 
 ## Phase 1 - Foundation & Security Handshake
 
-Status: initial handshake MVP implemented, with historical physical-device validation and October 29 owner-reported genuine beta onboarding. This does not include periodic renewal. Historical Android progress references refer to the separate client workspace.
+Status: initial handshake MVP implemented, with historical physical-device validation and October 29 owner-reported genuine beta onboarding. Periodic renewal is the separately qualified local lifecycle below, not part of that historical onboarding acceptance. Historical Android progress references refer to the separate client workspace.
 
 ### **Action**
 
@@ -279,36 +279,65 @@ Continue from completed two-tester setup and genuine ad onboarding rather than r
 - Record initial live ad SMS/onboarding as passed on owner-reported evidence without claiming every broader acceptance item is closed. Coordinate gate status with the client handoff rather than editing its owner-controlled attachment or asserting overall readiness.
 - This document authorizes no build/signing, device operation, hosted access, deployment, live SMS, revocation or expanded distribution.
 
-## Required Next Lifecycle - Quiet Renewal (Not Implemented)
+## Coordinated Lifecycle - Locally Qualified, Not Hosted
 
-**Requirement recorded:** 2026-11-02 19:05:52 CET (UTC+01:00), verified local clock. Owner reports that the original client verification timestamp remained displayed and clarifies the intended recurring authentication behavior. This is required work, not an implemented feature or a deployment/configuration toggle.
+**History:** requirement recorded November 2 at 19:05:52 CET; signed-HTTPS,
+overdue-access and exemption policy accepted November 3 in
+[ADR 006](./ADRs/006_coordinated_renewal_and_offboarding.md). November 4 local
+qualification at the timestamp above supersedes the earlier "not implemented"
+assessment. Initial onboarding/call acceptance remains intact, not restarted.
 
 ### Desired behavior
 
 1. **Initial manual enrollment:** The user submits the active ad, receives SMS OTP and completes verification signed with the device's existing hardware-backed key.
-2. **Quiet renewal after 24 hours:** Renew without requiring normal users to repeat manual onboarding. The server genuinely rechecks the associated ad and the enrolled recipient; successful renewal establishes a new server-authoritative success time and a next due time 24 hours later.
+2. **Quiet renewal after 24 hours:** Signed HTTPS with the existing key, no renewal SMS/OTP. First due is explicit verification plus 86,400 seconds; subsequent due is successful renewal commit plus 86,400 seconds. Preserve historical verification time. The server rechecks the retained ad and original verified recipient.
 3. **Repeat while eligible:** Continue the cycle while the ad is active and the identity/contact still matches. Do not advance the successful-renewal timestamp merely because a check was attempted or the UI opened.
 4. **Ad off:** Confirmed ad deactivation offboards the client and requires fresh manual onboarding. Reactivation alone must not silently restore authorization once offboarding has occurred. Offboarding must mean server-enforced loss of query/report authority, not merely hiding a client screen; do not erase community reports or regenerate hardware keys as a workaround.
 5. **Overdue phone:** If the phone is powered off/offline beyond the interval, attempt the overdue renewal as soon as the app can execute with connectivity again. After successful renewal, count the next 24 hours from that success, not a missed scheduled attempt; do not replay one renewal for every missed day.
 6. **User-visible state:** Client displays the server-confirmed latest successful renewal time and distinguishes pending/unavailable renewal from confirmed offboarding. Android scheduling/boot/resume behavior must be inspected and tested; execution while powered off or exact background timing cannot be promised.
 
-### Current implementation gap - verified server source
+### Implemented and inspected server boundaries
 
-- [API routes](../../routes/api.php) expose only initiation, verification, report and query; there is no renewal/revocation endpoint.
-- [DeviceBinding](../../app/Models/DeviceBinding.php) and its [schema](../../database/migrations/2026_03_31_123100_create_device_bindings_table.php) store phone, public key and `verified_at`, without retained ad association, next-renewal deadline or offboarding state.
-- [AuthVerificationService](../../app/Services/AuthVerificationService.php) changes `verified_at` only after successful OTP verification and deletes the challenge that held the ad URL. The [verification response](../../app/Http/Controllers/Api/Auth/VerifyAuthController.php) exposes that initial timestamp.
-- [Signed query](../../app/Services/BlacklistQueryService.php) and [report](../../app/Services/ReportSubmissionService.php) check binding/key/signature, not age/ad state. The [console schedule](../../routes/console.php) optionally probes proxies, not enrolled users. A 15-minute OTP expiry is not a 24-hour authorization lease.
-- Therefore ad-off access continuity described earlier is actual current behavior, not satisfaction of the desired renewal policy. The client may have additional gaps; its scheduler/storage/UI have not been inspected here.
+- [API routes](../../routes/api.php) add signed status/renewal through the
+  [lifecycle service](../../app/Services/AuthLifecycleService.php), preserving
+  [exact canonical payloads/envelopes](./BACKEND_API_CONTRACT.md#coordinated-renewal-and-offboarding).
+- [Nullable migration](../../database/migrations/2026_11_03_210000_add_binding_lifecycle.php)
+  adds provenance, generations, selection, due/state/version, persisted retry
+  reservations and bounded receipts. Legacy provenance is never inferred.
+- [Verification](../../app/Services/AuthVerificationService.php) copies ad
+  provenance only from an explicit challenge, selects a new generation and
+  retains keys/community rows. Phone-only and legacy bindings are exempt.
+- [Authorization](../../app/Services/BindingLifecycle.php) uses short selected
+  binding transactions. Query/report access does not expire when overdue.
+  Portal I/O is outside transactions and incoming-call queries never await
+  renewal locks/scraping. No scheduled enrolled-ad crawling or automatic renewal OTP.
+- [Inspector](../../app/Services/RenewalAdInspector.php) requires narrow
+  supported inactivity or a complete confidently parsed excluding contact set.
+  Timeout, challenges, missing/partial contacts and bare404/410 remain unknown.
+  Unexpected failures emit exception-class-only diagnostics, no private content.
 
-### Design decisions to settle before implementation
+### Accepted protection and rollout constraints
 
-- **Renewal transport:** Owner described SMS/OTP exchange during quiet renewal. Clarify whether that literally means daily SMS or a signed HTTPS renewal request/response. Recommendation: use the existing device key for signed HTTPS ad revalidation, retaining manual OTP for initial enrollment/re-enrollment. This recommendation has not been approved; do not silently substitute it, introduce inbound SMS or assume automatic OTP reading.
-- **Failure versus offboarding:** Proxy timeout, blocked/interstitial page, DNS/provider outage or parser failure is not proof of ad deactivation. Decide bounded retry/backoff, access while temporarily unavailable/overdue, and treatment of expired/removed ads and changed contact. Do not silently revoke a valid user for a bad rotating exit or keep authorization indefinitely after confirmed inactivity.
-- **Phone-only enrollment:** Its exemption or separate renewal policy must be agreed; do not disable the existing private allowlist or demand an ad from phone-only users incidentally.
-- **Contract/state:** Define server timestamps, authenticated renewal payload/replay protection, idempotency/concurrent renewal semantics, retained ad/identity association, server authorization enforcement and migration of current bindings. Preserve keys, data, community reports and budget continuity. This phase may require schema/contract changes; October's initial-onboarding no-migration scope does not implement it.
-- **Scope/rollout:** Coordinate with the active Kotlin/Compose client. Do not add a background SMS resend loop, silently increase spend or publish/deploy/revoke existing users without explicit approval.
+- Failure delays remain 900/3,600/21,600 seconds with longer validated delays
+  honored; four enrollment fetch reservations/fixed day, 100 app fetches/day,
+  20 signed lifecycle requests/key/hour and three/IP/minute. Receipts remain
+  eight/enrollment for48h; durable pending claims fence cache expiry and late results.
+- Existing beta testers cannot be silently associated with ads consumed during
+  old enrollment. Keep them legacy/exempt. Enabling renewal requires separately
+  approved intentional supported-ad OTP verification with the retained key and
+  a client-owner-confirmed key/data-preserving entry path. No repeat enrollment
+  merely to reproduce accepted October onboarding.
+- Backend publication to `github` is owner-authorized on November 4. Bounded
+  hosted backup/preflight/migration/API rollout via `origin` remains a separate
+  execution step, not part of this publication-only slice. Server
+  must precede separately approved client distribution. Live portal/SMS,
+  enrollment/binding actions and device qualification each require explicit scope.
+- Preserve APP_KEY, keys, bindings, data, budgets and hosted configuration.
+  Migration rollback compatibility passed locally, but pre-lifecycle application
+  rollback would ignore terminal offboarding. Retain schema/state and forward-fix
+  a lifecycle-aware release; approve any containment pause separately.
 
-### Acceptance criteria to implement and test
+### Qualification and remaining acceptance
 
 - Manual enrollment establishes the server-authoritative renewal baseline; a due successful check validates both active ad and matching contact, advances success time and sets the next 24-hour deadline.
 - Early, duplicate, concurrent and replayed requests do not create extra SMS/provider effects or conflicting renewal state; failed checks do not advance the successful timestamp.
@@ -317,4 +346,14 @@ Continue from completed two-tester setup and genuine ad onboarding rather than r
 - A phone offline for more than 24 hours performs one overdue renewal when execution/connectivity resumes and schedules the next interval from actual success, without key reset or catch-up send storms.
 - Client updates its displayed timestamp only from successful server results, retains clear pending/offboarded states across restart, and handles Android background restrictions without promising exact wakeup times.
 - Phone-only users follow the explicitly selected policy; existing onboarding, SMS budgets, signatures, report thresholds and duplicates retain regression coverage.
-- Validate locally with isolated databases, mocked portal/networking and fake/log-only SMS before separately approved hosted/client acceptance. No claim that these new renewal criteria already pass.
+- Executed full isolated local regression: SQLite248/1,509; MariaDB24/690 at each
+  of REPEATABLE-READ and READ-COMMITTED. Local cases above pass, including
+  complete/encoded contacts and incomplete-set unknowns, genuine process
+  overlap, no portal transaction, migration compatibility and preserved
+  duplicate/threshold/allowlist/onboarding behavior.
+- Hosted release, real provider reliability, Android scheduler/Keystore/process
+  death and client distribution remain unqualified. Local success does not
+  establish beta readiness or SMS delivery. See the
+  [integration map](./plugin_integration_map.md) and
+  [server handoff](./client-docs/SERVER_TO_CLIENT.md) for commands, safeguards,
+  dated historical evidence and the server-first proposal.

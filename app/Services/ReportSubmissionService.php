@@ -44,6 +44,7 @@ class ReportSubmissionService
         )) {
             throw SignatureInvalidException::create();
         }
+        $deviceBinding = app(BindingLifecycle::class)->authorize($normalizedPublicKey, fn () => DeviceNotBoundException::create());
 
         $clientHash = hash('sha256', $normalizedClientPhoneNumber);
         $reporterHash = hash('sha256', $deviceBinding->phone_number);

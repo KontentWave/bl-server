@@ -4,6 +4,31 @@ namespace App\Services;
 
 class DeviceSignatureService
 {
+    public function lifecyclePayload(string $operation, array $data): string
+    {
+        $payload = ['operation' => $operation];
+        if ($operation === 'auth.renew') {
+            $payload['enrollment_id'] = $data['enrollment_id'];
+        }
+        $payload['request_id'] = $data['request_id'];
+        if ($operation === 'auth.renew') {
+            $payload['next_renewal_at'] = $data['next_renewal_at'];
+        }
+        $payload['public_key'] = $this->normalizePublicKey($data['public_key']);
+
+        return json_encode($payload, JSON_THROW_ON_ERROR);
+    }
+
+    public function verifyLifecycle(string $operation, array $data): bool
+    {
+        $signature = base64_decode($data['signature'], true);
+        $key = openssl_pkey_get_public($this->normalizePublicKey($data['public_key']));
+
+        return $signature !== false && $key !== false
+            && (openssl_pkey_get_details($key)['type'] ?? null) === OPENSSL_KEYTYPE_EC
+            && openssl_verify($this->lifecyclePayload($operation, $data), $signature, $key, OPENSSL_ALGO_SHA256) === 1;
+    }
+
     public function payload(string $challengeId, string $publicKey): string
     {
         return json_encode([

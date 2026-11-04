@@ -10,8 +10,7 @@ class AmaterkySkPhoneExtractor
 {
     public function __construct(
         private readonly EscortPhoneNumberNormalizer $escortPhoneNumberNormalizer,
-    ) {
-    }
+    ) {}
 
     public function supports(?string $host): bool
     {
@@ -40,6 +39,33 @@ class AmaterkySkPhoneExtractor
         }
 
         return $this->extractFromHeading($crawler);
+    }
+
+    public function extractAll(string $html): array
+    {
+        $crawler = new Crawler($html);
+        $this->ensureAdIsNotTemporarilyDisabled($crawler);
+        $results = [];
+        foreach ([
+            'a.detail-floater-link-phone[href^="tel:"]' => 'tel:',
+            'a.detail-floater-link-sms[href^="sms:"]' => 'sms:',
+        ] as $selector => $prefix) {
+            foreach ($crawler->filter($selector) as $node) {
+                $value = strtok(substr($node->getAttribute('href'), strlen($prefix)), '?');
+                $phone = $value === false ? null : $this->escortPhoneNumberNormalizer->normalizeE164($value);
+                if ($phone !== null) {
+                    $results[] = $phone;
+                }
+            }
+        }
+        foreach ($crawler->filter('.card.card-contact h2') as $node) {
+            $phone = $this->escortPhoneNumberNormalizer->normalizeE164($node->textContent);
+            if ($phone !== null) {
+                $results[] = $phone;
+            }
+        }
+
+        return array_values(array_unique($results));
     }
 
     private function ensureAdIsNotTemporarilyDisabled(Crawler $crawler): void

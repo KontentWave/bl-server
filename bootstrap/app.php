@@ -49,13 +49,18 @@ return Application::configure(basePath: dirname(__DIR__))
                 'api_code' => $exception->apiCode(),
             ]);
 
-            return ApiResponse::error(
+            $response = ApiResponse::error(
                 code: $exception->apiCode(),
                 message: $exception->getMessage(),
                 status: $exception->status(),
                 errors: $exception->errors(),
                 meta: $exception->meta(),
             );
+            if (isset($exception->meta()['retry_after']) && is_int($exception->meta()['retry_after'])) {
+                $response->headers->set('Retry-After', (string) max(1, $exception->meta()['retry_after']));
+            }
+
+            return $response;
         });
 
         $exceptions->render(function (ValidationException $exception, Request $request): ?JsonResponse {
