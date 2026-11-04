@@ -1,5 +1,82 @@
 # Two-Tester Beta Deployment, Configuration and Rollback Plan
 
+## November 4 - executed quiet-renewal/offboarding rollout
+
+**Updated:** 2026-11-04 15:49:19 CET (UTC+01:00), verified local clock.
+Owner approval covered backend publication and this bounded server-first
+backup/preflight/additive migration/API release; older authorization blocks
+below remain historical and are superseded only for this scope.
+
+[PR #25](https://github.com/KontentWave/bl-server/pull/25) reviewed head
+`c95ca386ace2f76523f4b82fe26a44bc1429256c` merged at
+`51f3e3bc60b2ca6b9aabe8eddf8f7daac3682c21` with identical trees.
+No checks/independent reviews were listed, not CI-pass evidence; no bypass.
+The existing private-release packaging/atomic entrypoint procedure was reused,
+not a push to the hosting bare repository. `github` is the code remote;
+`origin` remains hosting.
+
+Preflight verified the actual old beta target and 95 runtime/source files
+including `artisan`, exact 13-migration history, 15 InnoDB tables, PHP 8.5.12
+CLI/FPM, Laravel 13.34.0 and MariaDB 11.4.13 at REPEATABLE-READ. No queued/
+failed jobs or persistent Laravel workers were observed. Actual database
+transport still lacks TLS; existing shared-account filesystem exposure remains.
+
+Protected rollout `51f3e3bc-20261104` retains a consistent single-transaction
+database dump including cache/locks and an active application/environment/
+public-entry recovery archive. Directory700/files600, dump completion,
+gzip/tar verification and second protected local-copy SHA-256 equality passed.
+This is recoverable backup material with integrity checks, **not an executed
+restore drill or authority to restore budgets/old authorization**.
+
+New private release `51f3e3bc-20261104` contains 6,945 verified artifact files,
+83 unchanged production packages, no development dependencies. Existing
+production vendor was reused; Composer autoload alone regenerated with
+scripts/plugins disabled. Bundle SHA-256
+`8a455dc59a45a8ca1cd310f31d4c9a2d90c796a8efdafd1344d7dcbcc4425622`.
+The active environment was copied byte-for-byte; effective configuration was
+compared without disclosure.
+
+Public admission denial was verified, followed by a 605-second wait for the
+observed 600-second FPM realpath-cache TTL. Host pause was
+`14:35:06-14:46:21 UTC`; no claim of arbitrary in-flight cancellation.
+At `14:46:15-14:46:16 UTC`, ordinary Migrator executed only
+`2026_11_03_210000_add_binding_lifecycle`: 13 binding columns, three new tables,
+expected unique indexes, migration batch2/ledger14/18 tables. Native health200
+and lifecycle validation422 passed before atomic public index switch. The exact
+original public rewrites were then restored. No down/rollback/seed/flush.
+
+HTTPS health200, five no-send auth validation422 responses, correctly shaped
+unsigned synthetic query401, and generated-key signed unbound status/renew401
+passed. The latter retain `auth.renewal_unauthorized`, retryable false and no
+terminal snapshot. CLI and sampled FPM proved shared cache/counter/limiter,
+lock exclusion/non-owner rejection/owner release and preserved-key encryption
+roundtrip before/after cutover. Probe-process lock lottery was disabled only
+for synthetic checks. All-worker or actual due-renewal/device behavior is not
+established. Test harness table ordering and empty-query validation assumptions
+were corrected; no backend/source repair or migration retry was needed.
+
+Independent closeout retained every original business column: three legacy
+binding keys/verification times, one client, three reports, one feature-level
+row; lifecycle tables empty, provenance/generation still null. All 34 original
+OTP cache values/expirations were unchanged, including expired rows. APP_KEY,
+shared namespace/stores, HTTP/Webshare and SMSTools bindings, phone allowlist
+and budgets were preserved. Exact temporary public probes, synthetic cache/
+locks, private helpers and duplicated private configuration were removed.
+Protected archives, prior releases and sanitized evidence remain. Host cleanup
+passed at `14:49:01 UTC`; final public health200 at local `15:49:19 CET`.
+Full boundary details: [integration map](./plugin_integration_map.md).
+
+No live scraping/SMS, tester enrollment/binding change, ad reassociation,
+revocation/key reset, client distribution or APK action. Existing testers remain
+legacy/exempt. Next requires separate owner/client distribution/device approval;
+intentional retained-key ad/OTP enrollment additionally needs a client-owner
+confirmed preserving entry path. Do not repeat accepted onboarding/call tests.
+Retain lifecycle schema/state and use a lifecycle-aware forward fix: old
+authorization would ignore terminal offboarding. Tested migration-down is not
+live rollback approval; containment/destructive recovery needs separate approval.
+
+## Historical deployment and approval record
+
 **Recorded:** 2026-10-09 20:49:03 CEST (UTC+02:00), verified local time before this documentation batch.
 
 **Acceptance update, 2026-10-29 21:57:41 CET (UTC+01:00), verified local clock:**

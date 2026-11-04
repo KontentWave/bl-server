@@ -8,7 +8,10 @@ The same response schema remains unchanged when the hosted backend is running in
 
 ## Coordinated renewal and offboarding
 
-Accepted November 3, 2026; local implementation, not deployed behavior.
+Accepted November 3, 2026. November 4 published/deployed source and additive
+schema passed bounded hosted no-send checks; genuine renewal/offboarding and
+installed-client behavior remain unqualified. Wire contract below is unchanged.
+See the [integration map](plugin_integration_map.md) for deployment evidence.
 See [ADR 006](ADRs/006_coordinated_renewal_and_offboarding.md).
 
 `POST /api/auth/status` wire fields are `request_id`, `public_key`, `signature`.
