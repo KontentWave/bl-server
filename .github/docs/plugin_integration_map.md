@@ -1,18 +1,87 @@
 # Plugin and Module Integration Map
 
-**Updated:** 2026-11-04 15:22:08 CET (UTC+01:00), verified local clock.
-Current inspection: lifecycle implementation originally uncommitted on `main`
-`a8d2d9a91ac11d55320df434fce68b82470d4de9`, focused corrections and executed
-isolated SQLite/MariaDB qualification. Owner authorized the backend
-branch/commit/push/PR/merge/return-to-main publication workflow on November 4;
-this publication slice does not perform hosted operations or client distribution.
-Fresh pre-publication SQLite regression passed 248 tests / 1,509 assertions;
-changed/new PHP Pint and whitespace checks passed. MariaDB evidence below
-remains the earlier November 4 execution, not a new publication-time rerun.
-Publication identifiers are recorded in the local server-owned handoff after
-completion. Last executed hosted evidence remains October 29 20:07:09
-UTC, 94 runtime files matching `8d98219a06c932fd966d761a3159135832331bbd`;
-this is historical evidence, not current hosted parity.
+**Updated:** 2026-11-04 15:49:19 CET (UTC+01:00), verified local clock.
+Current scope: owner-approved publication and bounded hosted backup/preflight/
+additive migration/API rollout, before client distribution. Feature
+[PR #25](https://github.com/KontentWave/bl-server/pull/25) is merged:
+reviewed head `c95ca386ace2f76523f4b82fe26a44bc1429256c`, deployed merge
+`51f3e3bc60b2ca6b9aabe8eddf8f7daac3682c21`, identical trees.
+Implementation baseline remains `a8d2d9a91ac11d55320df434fce68b82470d4de9`.
+No GitHub checks or independent reviews were listed; no bypass was used.
+Earlier November 4 SQLite/MariaDB qualification below retains its local scope;
+the exact published tree was unchanged when this rollout began.
+
+### November 4 - executed server-first hosted rollout
+
+- **Current target, not assumed parity:** the beta public entrypoint initially
+  selected release `8d98219a-20261020`. All 95 inspected runtime/source files,
+  including `artisan`, matched that deployment; this is the earlier 94-file
+  inventory plus `artisan`, not an extra source change. Actual CLI and sampled
+  FPM: PHP 8.5.12, Laravel 13.34.0, MariaDB 11.4.13/InnoDB,
+  REPEATABLE-READ, 15 tables and the exact 13-entry migration history.
+  No queued/failed jobs or long-lived Laravel workers were observed.
+- **Recovery gate:** rollout `51f3e3bc-20261104` retains a single-transaction
+  database snapshot including cache/locks and a complete active application/
+  environment/public-entry recovery archive. Private directory mode 700,
+  archives mode 600; dump completion, gzip/tar integrity and a second protected
+  local copy's SHA-256 equality passed. No restore was executed or authorized;
+  backups must not be used to refund budgets or revert terminal lifecycle state.
+- **Reviewed artifact:** 6,945 bundled files, 83 unchanged production packages;
+  31 development packages excluded. Existing verified production dependencies
+  were reused; only Composer autoload was regenerated with scripts/plugins
+  disabled. Bundle SHA-256
+  `8a455dc59a45a8ca1cd310f31d4c9a2d90c796a8efdafd1344d7dcbcc4425622`.
+  New private release `51f3e3bc-20261104` received the byte-identical active
+  environment. No provider, budget, key, prefix or connection setting changed.
+- **Bounded cutover:** original public rewrites were saved, admission denial
+  verified over HTTPS, and a 605-second hold allowed the observed 600-second
+  FPM realpath-cache TTL to expire. Host admission pause was
+  `14:35:06-14:46:21 UTC`; this is not physical cancellation/drain proof.
+  At `14:46:15-14:46:16 UTC`, the ordinary Migrator ran only
+  [the additive lifecycle migration](../../database/migrations/2026_11_03_210000_add_binding_lifecycle.php):
+  13 nullable/defaulted binding columns and three tables; ledger 14, batch 2,
+  total 18 tables, expected unique indexes. Native health200 and both lifecycle
+  validation422 checks passed before atomic entrypoint switch; original
+  rewrites were restored, with no schema-down/source rollback.
+- **Executed no-send checks:** public HTTPS health200; empty status, renew,
+  initiate, owner-initiate and verify requests returned the existing JSON422
+  envelope. A correctly shaped unsigned synthetic query returned401
+  `blacklist_query_unauthorized`; generated-key, signed but unbound status and
+  renew returned401 `auth.renewal_unauthorized`, retryable false and no terminal
+  snapshot. No real binding/key was used. CLI/FPM before and after cutover
+  agreed on source, effective configuration and encryption roundtrip; synthetic
+  shared cache/counter/limiter visibility, lock exclusion, non-owner rejection
+  and owner release passed. Probe-process lock lottery alone was disabled;
+  persistent configuration was unchanged. These sample FPM workers, not every
+  worker or an installed Android client.
+- **Preservation and cleanup:** private equality checks retained every original
+  business column, three binding keys/verification times, one client, three
+  reports and one feature-level row. All three bindings still have null
+  provenance/generation and are legacy/exempt; all three lifecycle tables are
+  empty. All 34 original OTP cache rows, including expired entries, retained
+  exact values/expirations; none was reset/refunded. APP_KEY/environment,
+  shared store namespace, HTTP/Webshare and SMSTools bindings, allowlist and
+  budgets are unchanged. Public probes, exact synthetic cache/lock rows,
+  helper scripts and duplicated private configuration were removed. Protected
+  backups, previous releases and sanitized evidence remain. Host cleanup
+  passed at `14:49:01 UTC`; final public health200 at local `15:49:19 CET`.
+
+Two check-harness assumptions were corrected without changing backend source:
+SQL collation table ordering required binary-sorted set comparison; an empty
+query body correctly validates422, whereas the unsigned401 check requires a
+synthetic target hash. Subsequent targeted assertions passed; neither was
+hosted source/schema drift or a reason to retry migration.
+
+No scraping, SMS, enrollment/reassociation, revocation/key reset, APK operation
+or client distribution was performed. Database TCP still negotiates no TLS;
+the historical same-account filesystem exposure is not remediated. Backup
+integrity is not a restore drill. Actual due renewal/offboarding, Android jobs/
+process death/Keystore and SMS delivery remain unqualified. Next is separate
+owner/client approval for key/data-preserving client distribution/device work,
+not repeat onboarding or another server rollout. Existing testers may remain
+legacy/exempt; any intentional retained-key ad/OTP enrollment needs separate
+approval and a client-owner-confirmed key/data-preserving entry path.
+Retain lifecycle schema/state and prefer a lifecycle-aware forward fix.
 
 ## Current ad-flow qualification - approved supervised slice
 
@@ -101,14 +170,12 @@ scraping/SMS. Arbitrarily suspended external workers still cannot be physically
 canceled; their late results cannot commit. No hosted/provider/device or broader
 beta-readiness claim follows.
 
-**Server-first proposal:** backend code publication to `github` is now
-owner-authorized. A bounded hosted backup/preflight/migration/API rollout through
-`origin` with effective shared-store/transport/TLS/worker parity checked and
-existing keys, APP_KEY, data and budgets preserved remains a separately scoped
-execution step, not part of this publication-only slice. Do not distribute the new
-client before the server schema/API is ready. Initial validation should be
-no-send and synthetic where possible; any genuine portal/binding/SMS/device
-qualification needs its own explicit finite approval.
+**Server-first outcome:** publication and the bounded hosted schema/API rollout
+are now executed as recorded above. The existing private-release packaging and
+atomic public-entrypoint procedure was used; `origin` remains the hosting
+remote, not a GitHub publication remote or an automatic deployment push hook.
+No live provider/client qualification follows from the no-send checks; any
+genuine portal/binding/SMS/device work still needs explicit finite approval.
 
 Existing testers remain legacy/exempt: consumed ad challenges cannot prove
 provenance now. Do not backfill an ad, revoke a binding, reset keys, or request

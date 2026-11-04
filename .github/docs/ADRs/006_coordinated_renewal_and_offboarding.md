@@ -1,7 +1,10 @@
 # ADR 006: Coordinated renewal and terminal offboarding
 
 Recorded 2026-11-03 (CET). Accepted owner-approved client ADR-006 contract;
-local implementation only, not hosted qualification.
+Originally local implementation only. November 4 publication and bounded hosted
+schema/no-send API rollout are now executed; see the
+[integration map](../plugin_integration_map.md) for identifiers and exact limits.
+No genuine renewal/offboarding, provider or installed-client qualification.
 
 The complete agreed product and wire boundary is maintained in
 [BACKEND_API_CONTRACT](../BACKEND_API_CONTRACT.md#coordinated-renewal-and-offboarding).
