@@ -2,11 +2,13 @@
 
 namespace Tests\Feature\Services;
 
+use App\Contracts\EscortPortalClient;
 use App\Exceptions\EscortPortalTimeoutException;
 use App\Exceptions\EscortPortalUnavailableException;
 use App\Exceptions\InvalidAdUrlException;
 use App\Services\EscortAdUrlPolicy;
 use App\Services\HttpEscortPortalClient;
+use App\Services\RenewalAdInspector;
 use GuzzleHttp\Psr7\Response as Psr7Response;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
@@ -50,6 +52,35 @@ class HttpEscortPortalClientTest extends TestCase
             return $request->url() === 'https://www.amaterky.sk/32297'
                 && $request->header('User-Agent')[0] === 'BlacklistBackend/Test';
         });
+    }
+
+    #[DataProvider('unknownRenewalResponses')]
+    public function test_renewal_http_failures_are_unknown_and_never_retry_in_request(int $status): void
+    {
+        Http::fake(['https://www.amaterky.sk/fixture' => Http::response(
+            '<h2 class="alert-heading">Vypnutý zadávateľom</h2>', $status, ['Retry-After' => '7200'],
+        )]);
+        $this->app->instance(EscortPortalClient::class, app(HttpEscortPortalClient::class));
+        $result = app(RenewalAdInspector::class)->inspect('https://www.amaterky.sk/fixture', '+421900123456');
+        $this->assertSame('unknown', $result['status']);
+        $this->assertSame(7200, $result['retry_after']);
+        Http::assertSentCount(1);
+    }
+
+    public static function unknownRenewalResponses(): array
+    {
+        return [[404], [410], [302], [429], [500], [502], [503]];
+    }
+
+    public function test_renewal_transport_retry_after_is_validated_and_cleared_between_fetches(): void
+    {
+        Http::fakeSequence()->push('', 429, ['Retry-After' => '7200'])->push('', 429, ['Retry-After' => 'garbage']);
+        $client = app(HttpEscortPortalClient::class);
+        $client->fetchAdHtml('https://www.amaterky.sk/fixture');
+        $this->assertSame(7200, $client->renewalRetryAfter());
+        $client->fetchAdHtml('https://www.amaterky.sk/fixture');
+        $this->assertSame(0, $client->renewalRetryAfter());
+        Http::assertSentCount(2);
     }
 
     public function test_it_returns_null_when_the_portal_response_is_not_successful(): void

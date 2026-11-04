@@ -13,6 +13,13 @@ use Illuminate\Support\Facades\Log;
 
 class HttpEscortPortalClient implements EscortPortalClient
 {
+    private int $renewalRetryAfter = 0;
+
+    public function renewalRetryAfter(): int
+    {
+        return $this->renewalRetryAfter;
+    }
+
     public function __construct(
         private readonly RotatingProxyConfig $rotatingProxyConfig,
         private readonly EscortAdUrlPolicy $adUrlPolicy,
@@ -20,6 +27,7 @@ class HttpEscortPortalClient implements EscortPortalClient
 
     public function fetchAdHtml(string $adUrl): ?string
     {
+        $this->renewalRetryAfter = 0;
         $host = $this->adUrlPolicy->validate($adUrl);
 
         if (! defined('CURLOPT_CONNECT_TO')) {
@@ -63,23 +71,20 @@ class HttpEscortPortalClient implements EscortPortalClient
         } catch (RequestException $exception) {
             $response = $exception->response;
 
-            if ($response?->serverError()) {
-                throw EscortPortalUnavailableException::forPhoneNumber($adUrl, $response->status());
+            if (! $response || $response->successful()) {
+                throw EscortPortalUnavailableException::forPhoneNumber($adUrl);
             }
-
-            if ($response && ! $response->successful()) {
-                Log::info('escort_portal.fetch.no_match', [
-                    'ad_url_hash' => sha1($adUrl),
-                    'driver' => 'http',
-                    'status' => $response->status(),
-                ]);
-
-                return null;
-            }
-
-            throw EscortPortalUnavailableException::forPhoneNumber($adUrl);
         }
 
+        $retryAfter = $response->header('Retry-After');
+        if (is_string($retryAfter) && preg_match('/^[0-9]{1,10}$/D', $retryAfter) === 1) {
+            $this->renewalRetryAfter = min(2147483647, (int) $retryAfter);
+        } elseif (is_string($retryAfter)) {
+            $date = \DateTimeImmutable::createFromFormat(DATE_RFC7231, $retryAfter);
+            if ($date !== false && $date->format(DATE_RFC7231) === $retryAfter) {
+                $this->renewalRetryAfter = min(2147483647, max(0, $date->getTimestamp() - now()->timestamp));
+            }
+        }
         if ($response->serverError()) {
             throw EscortPortalUnavailableException::forPhoneNumber($adUrl, $response->status());
         }

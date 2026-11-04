@@ -1,41 +1,312 @@
 # Plugin and Module Integration Map
 
-**Updated:** 2026-10-29 21:57:41 CET (UTC+01:00), verified local clock; recording owner-reported successful live ad/SMS/OTP onboarding. Last executed hosted inspection/activation is October 29 20:07:09 UTC below, including 94 runtime files matching deployment `8d98219a06c932fd966d761a3159135832331bbd`. Local main/cached github-main baseline `66457ccf47f3142bcfa13dfe4c2cffebaa368358`; no new hosted operation, source deployment, Git remote refresh or publication for this update.
+**Updated:** 2026-11-04 15:22:08 CET (UTC+01:00), verified local clock.
+Current inspection: lifecycle implementation originally uncommitted on `main`
+`a8d2d9a91ac11d55320df434fce68b82470d4de9`, focused corrections and executed
+isolated SQLite/MariaDB qualification. Owner authorized the backend
+branch/commit/push/PR/merge/return-to-main publication workflow on November 4;
+this publication slice does not perform hosted operations or client distribution.
+Fresh pre-publication SQLite regression passed 248 tests / 1,509 assertions;
+changed/new PHP Pint and whitespace checks passed. MariaDB evidence below
+remains the earlier November 4 execution, not a new publication-time rerun.
+Publication identifiers are recorded in the local server-owned handoff after
+completion. Last executed hosted evidence remains October 29 20:07:09
+UTC, 94 runtime files matching `8d98219a06c932fd966d761a3159135832331bbd`;
+this is historical evidence, not current hosted parity.
 
 ## Current ad-flow qualification - approved supervised slice
 
-### November 2 - intended renewal is absent from the current contract
+### November 4 - server review, corrections and isolated qualification
 
-**Inspected:** 2026-11-02 18:59:36 CET (UTC+01:00), verified local clock; local
-baseline `66457ccf47f3142bcfa13dfe4c2cffebaa368358`, no hosted/client execution.
-Owner reports unchanged client timestamp and specifies desired 24-hour quiet
-ad-based renewal, overdue renewal on return and offboarding on ad deactivation.
-This is a newly clarified requirement, not existing implemented behavior.
+The existing lifecycle changes were preserved and inspected: additive migration,
+key selection/generations, signed authorization, receipts/pruning, pending-claim
+fencing, parser confidence and transport. Exact payload order, envelopes, due
+tokens, metadata, budgets and client error distinctions remain unchanged.
+Client-owned handoff/attachment were read only. The client handoff reports
+[client PR #17](https://github.com/KontentWave/bl-client/pull/17) merged at
+`70ed318491a13f4c1f7d45d5fd1c5ce29454ebc2`; client/device behavior was not rerun here.
 
-- [API routes](../../routes/api.php) have no renewal/revocation endpoint;
-  [console scheduling](../../routes/console.php) only optionally probes proxies.
-- [Binding schema](../../database/migrations/2026_03_31_123100_create_device_bindings_table.php)
-  and [model](../../app/Models/DeviceBinding.php) hold phone, public key,
-  verification time and normal timestamps, not the ad/lease/revocation lifecycle.
-- [OTP verification](../../app/Services/AuthVerificationService.php) alone
-  sets `verified_at` on successful binding and deletes the challenge carrying
-  the ad URL; [response](../../app/Http/Controllers/Api/Auth/VerifyAuthController.php)
-  returns that timestamp. Initial [issuance](../../app/Services/OtpChallengeService.php)
-  scrapes before SMS, with a 15-minute OTP expiry, not a 24-hour binding lease.
-- [Queries](../../app/Services/BlacklistQueryService.php) and
-  [reports](../../app/Services/ReportSubmissionService.php) authorize by
-  stored key/signature without age/ad checks or timestamp refresh. No automated
-  ad-off revocation or resume-after-poweroff renewal exists in this path.
+**Demonstrated defects and fixes:**
 
-Earlier ad-off continuity guidance correctly described current implementation,
-but does not satisfy this clarified policy. Preserve the successful onboarding
-evidence without treating it as renewal acceptance. A coordinated contract/
-lifecycle change is needed; do not silently implement daily SMS, revoke on a
-transient proxy failure or impose the ad policy on phone-only enrollment.
-Quiet renewal transport (signed HTTPS versus daily SMS), overdue access rules,
-confirmed-inactive versus unavailable handling and phone-only policy remain
-design decisions. No runtime/source changes, SMS or new tests in this
-documentation-only investigation.
+- [RenewalAdInspector](../../app/Services/RenewalAdInspector.php) previously
+  caught every `Throwable` without diagnostics. Known timeout, unavailable,
+  URL-policy and extraction exceptions now have an explicit unknown path with
+  integer-only retry hints. Empty/unrecognized/ambiguous parser outcomes remain
+  explicit unknowns. Unexpected exceptions still cannot offboard a user, but
+  emit `renewal.inspection_failed` at error level with **exception class only**:
+  no exception object, message, trace, URL, contact, key or response body.
+  The new regression failed before correction because no diagnostic existed.
+- Partial contact sets were not necessarily confident: Amaterky phone/SMS
+  anchors missing the expected href were skipped; EuroGirls could skip a
+  contact item with only an unavailable/visible-prefix phone. A recognized
+  partial set could therefore exclude the verified recipient incorrectly.
+  Amaterky now checks every supported contact anchor; EuroGirls checks every
+  contact item and phone trigger, as well as each advertised data attribute.
+  Incomplete sets remain unknown, not `contact_changed`. The new regression
+  initially received terminal403 instead of503. Complete multi-contact and
+  encoded EuroGirls fixtures still renew and can confirm a genuine change.
+
+**Inspected integration boundaries:** [AppServiceProvider](../../app/Providers/AppServiceProvider.php)
+still binds `EscortPortalClient` from `services.escort_portal.driver`
+(`fixture` or HTTP) and `SmsSender` independently; no new provider or plugin
+hook. Both new POST routes retain `throttle:api`, then signed lifecycle request
+caps/shared limiter locks. Status/renewal inspection is synchronous and
+device-initiated, not queued or scheduled. Portal I/O remains outside
+transactions; short selection/binding transactions precede report-target locks.
+No incoming-call query awaits the portal or renewal cache lock. Existing
+`cache.limiter`/default store and `services.escort_portal.timeout` govern the
+shared limiter and lease; no hosted binding/configuration changes were made.
+The nullable binding upgrade, selection row, generation ownership registry and
+unique enrollment/request receipt pair remain the only new storage boundary.
+
+**Executed evidence (PHP 8.4.12 / PHPUnit 12.5.15):**
+
+| Selection | Result |
+| --- | --- |
+| `php vendor/bin/phpunit --do-not-cache-result` | 248 tests / 1,509 assertions passed |
+| `php scripts/test-mariadb.php` with session-only Compose configuration | 24 tests / 690 assertions passed under REPEATABLE-READ; independently 24 / 690 under READ-COMMITTED |
+| New [MariaDB lifecycle suite](../../tests/Database/LifecycleConcurrencyTest.php), focused run | 6 tests / 131 assertions at each isolation level |
+| Changed/new PHP Pint, `php -l`, `git diff --check` | Passed |
+
+The full MariaDB run has one fewer assertion than the focused lifecycle plus
+older suite totals because only the first suite asserts that the initial schema
+is empty. It is not a skipped test. [Lifecycle regressions](../../tests/Feature/Auth/LifecycleTest.php)
+cover equality, overdue single-fetch catch-up/commit-time due, terminal state,
+explicit re-enrollment, unknown failures/contact changes, request/fetch caps,
+backoff, receipts/conflicts/pruning and stale-result rejection. Existing full
+regressions retain signed query/report distinctions, duplicate reports,
+threshold three, phone allowlist and initial enrollment.
+
+The existing [runner](../../scripts/test-mariadb.php),
+[Compose definition](../../compose.mariadb-test.yaml) and
+[bootstrap](../../tests/bootstrap-mariadb.php) were inspected before execution:
+local Unix-socket daemon; random project/password; loopback ephemeral port;
+verified container labels/project; tmpfs-only database; cached-config refusal;
+forced disposable schema, fixture portal and log-only SMS with OTP logging off.
+The workstation Compose plugin was missing/broken. A missing-dependency run
+failed before container creation; Ubuntu Compose 2.40.3 was then downloaded and
+extracted only in session storage, used via temporary `DOCKER_CONFIG`, with no
+global installation/configuration change. Run-created containers/networks were
+removed by the runner. A pre-existing exited test container was left untouched.
+PHP has no loaded Xdebug; deterministic regressions/process barriers supplied
+runtime evidence without temporary production logging.
+
+The new process tests prove zero transaction depth during paused fixture I/O,
+overlap/cache-loss pending fencing, query completion while scraping is paused,
+short selection serialization with an observed InnoDB lock wait, terminal
+offboarding, re-enrollment/stale-result rejection, expired-claim rejection after
+a later success, and nullable migration rollback/re-upgrade retaining keys,
+verification time and community rows. They use mocked portal I/O, not live
+scraping/SMS. Arbitrarily suspended external workers still cannot be physically
+canceled; their late results cannot commit. No hosted/provider/device or broader
+beta-readiness claim follows.
+
+**Server-first proposal:** backend code publication to `github` is now
+owner-authorized. A bounded hosted backup/preflight/migration/API rollout through
+`origin` with effective shared-store/transport/TLS/worker parity checked and
+existing keys, APP_KEY, data and budgets preserved remains a separately scoped
+execution step, not part of this publication-only slice. Do not distribute the new
+client before the server schema/API is ready. Initial validation should be
+no-send and synthetic where possible; any genuine portal/binding/SMS/device
+qualification needs its own explicit finite approval.
+
+Existing testers remain legacy/exempt: consumed ad challenges cannot prove
+provenance now. Do not backfill an ad, revoke a binding, reset keys, or request
+repeat onboarding just to reproduce October's accepted success. Renewal can
+be enabled for an existing tester only through a separately approved,
+intentional supported-ad OTP verification creating a new generation with the
+retained device key; the client owner must first confirm the manual entry path
+preserves key/data. Remaining legacy/exempt is valid and needs no live action.
+Migration-down compatibility is tested, but is **not** a safe operational
+rollback after offboarding: old authorization would ignore terminal state.
+Retain schema/state and forward-fix a lifecycle-aware build; separately approve
+an ingress pause if containment is needed. See the current
+[server handoff](client-docs/SERVER_TO_CLIENT.md) for owner action.
+
+### November 3 - accepted coordinated renewal/offboarding; local implementation
+
+**Updated:** 2026-11-03, CET (UTC+01:00). Server baseline
+`a8d2d9a91ac11d55320df434fce68b82470d4de9`; owner documentation-only edits
+integrated, not discarded. Client accepted ADR-006 at baseline
+`6aae2cb499c251326c47c10a24e5530a63e254b1` owns the coordinated client work.
+The ignored client `backend-docs` symlink points here. `github` is code;
+`origin` is hosting, untouched. No hosted/runtime/provider qualification.
+
+- [ADR 006](ADRs/006_coordinated_renewal_and_offboarding.md) and
+  [authoritative API contract](BACKEND_API_CONTRACT.md#coordinated-renewal-and-offboarding)
+  were written before runtime implementation. Device-initiated signed
+  status/renewal is not SMS/OTP, a lease or scheduled crawling. Overdue bindings
+  retain ordinary query/report access until confirmed offboarding.
+- [Routes](../../routes/api.php), [request bounds](../../app/Http/Requests/Auth/LifecycleRequest.php),
+  [controller](../../app/Http/Controllers/Api/Auth/LifecycleController.php) and
+  [service](../../app/Services/AuthLifecycleService.php) implement signed
+  `POST /api/auth/status` / `POST /api/auth/renew`. Existing EC key, normalized
+  PEM, ordered canonical PHP JSON/SHA256 are shared in
+  [signature helpers](../../app/Services/DeviceSignatureService.php). All
+  lifecycle keys, nullable fields, exact due token, versions and UTC snapshots
+  are explicit. Query/report terminal metadata has no request ID.
+- [Nullable upgrade migration](../../database/migrations/2026_11_03_210000_add_binding_lifecycle.php)
+  adds provenance/generation/state/version/timestamps and persisted fetch-window,
+  failure-ladder/retry eligibility to bindings. `device_key_selections` selects
+  the current binding after explicit verification; ownership hashes in
+  `device_enrollment_generations` distinguish stale same-key generations from
+  unknown/foreign IDs after pruning. `renewal_receipts` retains accepted renewal
+  digest/outcome for48h, max8/enrollment. No inferred backfill/community change.
+- [Verification](../../app/Services/AuthVerificationService.php) copies challenge
+  provenance or recognizes existing `owner-enrollment` sentinel as phone-only.
+  New generation supersedes prior same-key bindings, retaining rows/reports and
+  verification semantics. Response adds `data.lifecycle`; renewal never
+  rewrites verified_at. Allowlist remains issuance-only. Legacy ambiguity keeps
+  first-binding query/report behavior; status refuses to guess provenance.
+- [BindingLifecycle](../../app/Services/BindingLifecycle.php) linearizes selected
+  authorization/state commits in short transactions, selection then ordered
+  binding locks. [Queries](../../app/Services/BlacklistQueryService.php) and
+  [reports](../../app/Services/ReportSubmissionService.php) verify signatures
+  before authoritative offboarding errors; CB-11's query401 and report403/422
+  remain unchanged. Report target locks follow committed binding authorization.
+  Authorized operations may finish after later offboard commit. Query never
+  awaits renewal's cache lock or portal I/O.
+- [RenewalProtection](../../app/Services/RenewalProtection.php) reuses
+  `OtpAbuseProtection::assertSharedStore`, cache limiter/default/stores/prefix
+  and shared locks. Fixed request caps20/key/hour and3/IP/minute; application
+  fetch cap100/86400s. Renewal lock contention returns429/Retry-After1.
+  Persisted per-enrollment reservations permit4/fixed86400s from first fetch;
+  failures delay900/3600/21600s, honoring longer validated Retry-After. Success
+  resets failure ladder only. No SMS counter/config/key resets.
+- [Inspector](../../app/Services/RenewalAdInspector.php) uses existing container
+  portal binding, one fetch and supported Amaterky/EuroGirls selectors only,
+  not generic fallback. Amaterky exact `h2.alert-heading` disabled notices and
+  `Vypršala platnosť` expiry confirm terminal offboarding. Unsupported deletion,
+  empty/ambiguous contacts, challenges, bare404/410 and transport/parser failures
+  are unknown503. Active contacts match the original verified phone regardless
+  order; confident exclusion offboards contact_changed. Enrollment's primary
+  preference stays unchanged. [HTTP](../../app/Services/HttpEscortPortalClient.php)
+  retains HTTPS/host/443, public DNS pinning, TLS/no redirects and proxy choices;
+  validated Retry-After is exposed without changing enrollment failure semantics.
+- Portal I/O is outside DB locks; commit rechecks selected key, binding,
+  generation/version. Current terminal state overrides old active receipts;
+  duplicates never fetch/advance. Fresh eligible retries use new IDs; signed
+  old successful cycles remain rejected after receipt pruning.
+- Executed forced-memory SQLite/no cached config using source fixtures,
+  generated test EC keys, fake portal callbacks, Carbon clocks and stray-request
+  guards. Initial actual failing test:1 test/1 assertion, expected200 got404,
+  not compilation failure. Focused passing run:200 tests/1331 assertions
+  (31 lifecycle tests plus existing enrollment/query/report/portal suites and
+  eight HTTP additions). Reentrant duplicate proves429/no second fetch;
+  in-fetch manual generation rejects stale commit; query succeeds with renewal
+  lock held; transaction-depth check proves no portal DB lock. Query interleaving proves
+  authorization before offboard commit may finish, while the next query denies. MariaDB
+  bootstrap/overlap suites inspected but not executed: Docker reports no
+  already-provisioned labeled isolated test container. No service provision/start,
+  toolchain/config/env change, real network/SMS or Git publication.
+
+  Executed command: `php vendor/bin/phpunit --do-not-cache-result
+  tests/Feature/Auth tests/Feature/Blacklist tests/Feature/Reports
+  tests/Feature/Scraper/Portals tests/Feature/Services/HttpEscortPortalClientTest.php`
+  through WSL Ubuntu-22.04 in the server checkout; PHP8.4.12/PHPUnit12.5.15.
+  [Lifecycle tests](../../tests/Feature/Auth/LifecycleTest.php) include isolated
+  upgrade/rollback with a pre-metadata legacy row and retained community rows.
+  That rollback first exposed a SQLite unique-index drop error (1 test,
+  0 assertions, 1 runtime error); dropping the added unique index before
+  dropping its column fixed it, and the final combined run above passes.
+  Changed-PHP-only Pint check and `git diff --check` pass.
+  Cache cleanup fault injection proves release failure cannot reclassify a
+  protected committed renewal as unavailable: retain its outcome, log cleanup
+  failure and leave the lease closed until expiry. Acquisition/budget failures
+  still fail503 before portal I/O.
+
+### Lease-expiry and early-request qualification (November 3)
+
+The shared cache lease is `max(120, services.escort_portal.timeout + 30)`
+seconds, exposed by `RenewalProtection::leaseSeconds()`. A timeout margin alone
+is not a durable concurrency fence: arbitrary worker suspension can outlive it.
+The new regression initially observed two portal calls for one retained request
+ID after cache expiry (1 test/1 assertion/1 genuine failure).
+
+`AuthLifecycleService` now writes an accepted `pending` receipt in the same
+short transaction as the enrollment fetch reservation, before portal I/O.
+The receipt's internal retry_at temporarily holds its claim deadline. Pending
+receipts block other IDs even if the cache lease is lost; expired claims settle
+once as unavailable, preserve lifecycle and consumed reservations, and enter
+900/3600/21600s failure backoff. A retained duplicate gets that stored failure,
+not another fetch. Fresh IDs blocked by pending/retry caps get no receipt.
+Completion rechecks selection/generation/version and the exact receipt row ID,
+digest, pending outcome and deadline under short locks. A canceled, expired,
+pruned or replaced claim cannot commit, including same UUID reuse after receipt
+retention. New-generation manual enrollment remains separately fenced.
+No columns/tables, budgets or wire codes were added by this correction.
+
+Accepted200 not-due/exempt requests are receipted as well. Replaying an early
+ID at the due boundary remains not-due/no-fetch; changed canonical inputs
+return409. A new eligible ID is required. All receipts remain bounded8/48h.
+
+Executed standalone lifecycle file:31 tests/296 assertions passed. Final
+combined focused selection above:200 tests/1331 assertions passed, comprising
+161 pre-existing regressions +31 lifecycle tests +8 added HTTP cases. This is
+not a repository-wide PHPUnit run. New deterministic cases cover cache loss,
+same-ID expiry, different-ID backoff/stale commit, timeout200/lease230 and
+receipted early-ID replay. Ordinary HTTP is bounded by configured timeout;
+no guarantee of cancellation/external exactly-once execution is claimed for
+an arbitrarily suspended worker. After unknown settlement/backoff a different
+ID can legitimately start another paid attempt; a late old result is fenced.
+
+### Parent-reported final native and cryptographic qualification (November 3)
+
+Parent verified final XML totals:217 JVM tests discovered,216 passed,
+1 old optional `BackendReportInteropTest` skipped,26 suites with zero
+failures/errors. The actual synthetic Java EC -> PHP `DeviceSignatureService`
+lifecycle interoperability test executed and passed for status, nullable due
+and offset due; no genuine wire/signature mismatch. The helper uses
+`wsl --exec` to preserve PHP variables without shell expansion.
+Full JVM validation, instrument-test compilation and sequential debug lint
+passed; instrument compilation was UP-TO-DATE after earlier source compilation,
+not an executed device test. Lint:0 errors,19 warnings.
+These are parent-reported local results, not independently rerun by this server
+task. Cryptographic parity is not hosted, Laravel-route/provider end-to-end or
+device qualification. Publication/deployment were not authorized or performed.
+Server executed focused qualification remains200 tests/1331 assertions above.
+
+### November 3 server-only local change inventory (historical)
+
+22 changed/new files:19 PHP files (including1 additive migration and2 test
+files), plus3 documentation files. HEAD remains the recorded baseline.
+No client file or `SERVER_TO_CLIENT.md` change.
+
+- `.github/docs/ADRs/006_coordinated_renewal_and_offboarding.md`
+- `.github/docs/BACKEND_API_CONTRACT.md`
+- `.github/docs/plugin_integration_map.md`
+- `app/Http/Controllers/Api/Auth/LifecycleController.php`
+- `app/Http/Controllers/Api/Auth/VerifyAuthController.php`
+- `app/Http/Requests/Auth/LifecycleRequest.php`
+- `app/Models/DeviceBinding.php`
+- `app/Scraper/Portals/AmaterkySkPhoneExtractor.php`
+- `app/Services/AuthLifecycleService.php`
+- `app/Services/AuthVerificationService.php`
+- `app/Services/BindingLifecycle.php`
+- `app/Services/BlacklistQueryService.php`
+- `app/Services/DeviceSignatureService.php`
+- `app/Services/HttpEscortPortalClient.php`
+- `app/Services/ReportSubmissionService.php`
+- `app/Services/RenewalAdInspector.php`
+- `app/Services/RenewalProtection.php`
+- `bootstrap/app.php`
+- `database/migrations/2026_11_03_210000_add_binding_lifecycle.php`
+- `routes/api.php`
+- `tests/Feature/Auth/LifecycleTest.php`
+- `tests/Feature/Services/HttpEscortPortalClientTest.php`
+
+Shared signing integration methods:
+`DeviceSignatureService::lifecyclePayload(string $operation, array $data): string`,
+`DeviceSignatureService::verifyLifecycle(string $operation, array $data): bool`,
+and existing `normalizePublicKey(string $publicKey): string`. Canonical goldens
+for status, null due, concrete due and PEM escaping are executed locally and
+documented in the API contract. All lifecycle keys/nulls are present; ad due
+equals verified/last-renewed plus86400s, UTC tokens use `+00:00`. No intentional
+wire-shape differences from accepted ADR-006.
+
+Prior owner-reported successful ad onboarding below remains historical evidence,
+not renewal/deployment qualification. `SERVER_TO_CLIENT.md` and client files
+are untouched by this server task.
 
 **Owner-reported pass, recorded 21:57:41 CET:** tester submitted the ad URL,
 received the actual SMS OTP, verified it and was onboarded. Accept this as

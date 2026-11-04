@@ -11,8 +11,7 @@ class BlacklistQueryService
 {
     public function __construct(
         private readonly DeviceSignatureService $deviceSignatureService,
-    ) {
-    }
+    ) {}
 
     public function check(string $targetHash, ?string $publicKey, ?string $signature): array
     {
@@ -32,6 +31,7 @@ class BlacklistQueryService
         if (! $this->deviceSignatureService->verifyBlacklistCheck($targetHash, $normalizedPublicKey, $signature)) {
             throw BlacklistQueryUnauthorizedException::create();
         }
+        app(BindingLifecycle::class)->authorize($normalizedPublicKey, fn () => BlacklistQueryUnauthorizedException::create());
 
         $client = Client::query()
             ->where('client_hash', $targetHash)

@@ -6,6 +6,128 @@ This document supersedes the earlier phone-number-plus-password handshake. Norma
 
 The same response schema remains unchanged when the hosted backend is running in the temporary Vonage-trial integration mode documented in ADR 5. Android should continue to parse the normal success and failure envelopes and should not branch on whether OTP routing is currently live-scraped or temporarily redirected to a verified test number.
 
+## Coordinated renewal and offboarding
+
+Accepted November 3, 2026; local implementation, not deployed behavior.
+See [ADR 006](ADRs/006_coordinated_renewal_and_offboarding.md).
+
+`POST /api/auth/status` wire fields are `request_id`, `public_key`, `signature`.
+Canonical compact PHP JSON order is `operation`, `request_id`, `public_key`,
+with operation `auth.status`. `POST /api/auth/renew` wire fields are
+`enrollment_id`, `request_id`, `next_renewal_at`, `public_key`, `signature`.
+Canonical order is `operation`, `enrollment_id`, `request_id`,
+`next_renewal_at`, `public_key`, with operation `auth.renew`.
+Operation is signed but omitted from the wire. Existing normalized PEM,
+PHP JSON escaping, Base64 DER EC signature and SHA-256 apply.
+UUIDs max 36, due token nullable string max 64, key max 8192, signature max
+4096; no client ad/phone input. Due must equal the exact server snapshot token.
+
+Canonical golden strings (synthetic `fixture/key`, not usable key material;
+each is one compact UTF-8 string, including the escaped slash):
+
+```json
+{"operation":"auth.status","request_id":"11111111-1111-4111-8111-111111111111","public_key":"fixture\/key"}
+{"operation":"auth.renew","enrollment_id":"22222222-2222-4222-8222-222222222222","request_id":"11111111-1111-4111-8111-111111111111","next_renewal_at":null,"public_key":"fixture\/key"}
+{"operation":"auth.renew","enrollment_id":"22222222-2222-4222-8222-222222222222","request_id":"11111111-1111-4111-8111-111111111111","next_renewal_at":"2026-11-04T12:00:00+00:00","public_key":"fixture\/key"}
+```
+
+PEM CRLF and surrounding per-line whitespace normalize to LF-separated,
+trimmed nonempty lines; JSON represents those LF characters as `\n`. New
+snapshot timestamp tokens use `+00:00`. The lifecycle regression signs generated
+EC keys over these same helpers and verifies operation and due-token
+domain separation; signatures are DER/Base64, not reproducible golden bytes
+(ECDSA nonce signatures vary).
+
+Verification success retains existing fields and adds `lifecycle`.
+Status/renewal success data is `{request_id, server_time, lifecycle}`.
+Lifecycle includes every key: `enrollment_id` UUID, `kind`
+(`ad`, `phone_only`, `legacy`), `state` (`active`, `offboarded`, `superseded`),
+positive monotonic `version`, UTC ISO-8601 `verified_at`,
+nullable `last_renewed_at`, `next_renewal_at`, `offboarded_at`, and nullable
+`reason` (`ad_disabled`, `ad_expired`, `ad_deleted`, `contact_changed`,
+`superseded`). No phone, URL, OTP or key material appears in snapshots.
+
+| HTTP | Code | Field / metadata |
+| --- | --- | --- |
+| 200 | `auth.status`, `auth.renewed`, `auth.renewal_not_due`, `auth.renewal_exempt` | success data above |
+| 403 | `device_offboarded` | `errors.authorization`, retryable false, matching terminal snapshot |
+| 401 | `auth.renewal_unauthorized` | `errors.authorization`, retryable false; not proof of revocation |
+| 409 | `auth.enrollment_changed` | `errors.enrollment_id`, retryable false; no mutation |
+| 409 | `auth.renewal_cycle_changed` | `errors.next_renewal_at`, retryable false, matched current snapshot |
+| 409 | `auth.request_id_conflict` | `errors.request_id`, retryable false |
+| 409 | `auth.enrollment_ambiguous` | `errors.authorization`, retryable false, no chosen snapshot |
+| 422 | `validation_failed` | existing field errors |
+| 429 | `rate_limited` | existing retryable true, integer `meta.retry_after` and seconds `Retry-After` |
+| 503 | `auth.ad_status_unavailable` | `errors.authorization`, retryable true, integer retry_after/header; state unchanged |
+| 503 | `abuse_protection_unavailable` | existing shared-store failure, retryable true, no fetch |
+
+Specified snapshot error metadata is `{request_id, server_time, lifecycle,
+retryable}`; query/report terminal metadata omits request_id. Temporary failure
+may additionally carry retry_after. Query's existing ambiguous 401
+`blacklist_query_unauthorized` and report's 403 `device_not_bound` / 422
+`signature_invalid` remain. Only a valid signature and selected terminal binding
+yield 403 `device_offboarded`. Authorization is linearized in a short
+selection/binding transaction before report target locks; authorized operations
+may finish after a later offboard commit. Queries never await portal/cache
+renewal locks.
+
+Initial due is verification + 86400 elapsed seconds; renew at equality or
+later, committing next due = commit + 86400. Verification time never changes.
+Overdue access is indefinite until confirmed offboarding, not a lease.
+Phone-only/legacy are exempt; legacy provenance is never guessed. Status
+may initialize a legacy generation without portal/SMS calls. Existing
+ambiguous same-key legacy bindings preserve first-binding query/report access;
+status returns ambiguity until explicit verification selects one generation.
+New OTP verification supersedes prior current same-key bindings but preserves
+rows/reports; allowlist is issuance-only. Offboarding is terminal until explicit
+OTP verification starts a new generation using the retained key.
+
+One supported explicit inactive notice suffices. Initially only Amaterky
+`h2.alert-heading` exact disabled variants and exact `Vypršala platnosť` expiry
+are supported. Deleted markers, bare 404/410, empty/missing contacts,
+challenge/nonrecognized HTML and proxy/timeout/throttle/parser failure remain
+unknown. Active supported nonempty contact candidates must contain the original
+verified canonical phone regardless order; a confident set excluding it
+offboards `contact_changed`. No generic scraper fallback authorizes renewal.
+Supported contact anchors/items/triggers that cannot be parsed make a partial
+contact set unknown; another valid contact alone does not establish confident
+exclusion. Expected unavailable/parser outcomes remain unknown. Unexpected
+inspection failures additionally emit a privacy-safe diagnostic containing
+only the exception class, never fetched content or personal values.
+Transport preserves HTTPS/host/DNS-pinning/TLS/no redirects. No server scheduler,
+SMS/OTP/provider budget or automatic phone reassignment.
+
+One fetch per eligible attempt; failures delay 900, 3600, then 21600 seconds,
+honoring longer validated Retry-After. Maximum four reservations per enrollment
+in a fixed 86400-second window from its first reservation; success resets
+failure ladder only. Additional shared-store fixed request caps: 20/key/hour,
+3/IP/minute; 100 application fetch reservations/fixed 86400 seconds. Locks
+fail closed; renewal lock contention returns 429 with Retry-After 1.
+
+Accepted renewal canonical digest/outcome receipts last 48 hours, max eight/enrollment;
+denied retry/fetch caps create no receipt. Duplicates never fetch/advance;
+current terminal state overrides old active receipts. Success replay uses
+stored outcome/current snapshot; failed replay uses stored remaining delay,
+minimum one second. New eligible retries use new IDs. Even after pruning,
+an old successful due token cannot renew a newer cycle. Recheck binding/key/
+generation/version before portal commit to prevent stale resurrection.
+Client persists pending ID/cycle before sending and reconciles lost responses
+through status, without replaying onboarding.
+
+Accepted not-due/exempt renewal responses also retain request receipts. Reusing
+an early ID at due remains its stored no-fetch outcome; canonical changes
+conflict409. Pending fetch receipts are committed with reservations before
+portal I/O, within the same8/48h bound. Cache lease is max120/configured portal
+timeout+30 seconds; pending claims independently block concurrent IDs after
+cache loss. Expiry settles the attempt as unknown and applies the existing
+900/3600/21600s failure ladder without refunding budgets. Retained duplicates
+return stored failure; fresh IDs wait for eligibility. The exact receipt row,
+digest/pending state/deadline and generation/version fence completion. Internal
+pending state is never a wire lifecycle/outcome code. Arbitrary process pauses
+cannot establish physical external exactly-once execution; later eligible IDs
+may inspect the same due cycle, but old results cannot commit.
+
+
 ## Transport
 
 - Base path: `/api`
